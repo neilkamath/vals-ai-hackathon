@@ -14,7 +14,8 @@ for t in "$root"/tasks/*/; do
   sed "s#/logs#$w/logs#g" "$t"tests/grade.py > "$w/tests/grade.py"
   bash "$w/test_local.sh" >/dev/null
   r=$(cat "$w/logs/verifier/reward.txt" 2>/dev/null)
-  if [ "$r" = "1" ]; then echo "PASS $id"; else echo "FAIL $id (reward=$r)"; fail=1; fi
+  missed=$(python3 -I -c "import json,sys;print(len(json.load(open(sys.argv[1]))['flags_missed']))" "$w/logs/verifier/details.json" 2>/dev/null)
+  if [ "$r" = "1" ] && [ "$missed" = "0" ]; then echo "PASS $id"; else echo "FAIL $id (reward=$r, traps unflagged=$missed)"; fail=1; fi
   rm -rf "$w"
 done
 exit $fail

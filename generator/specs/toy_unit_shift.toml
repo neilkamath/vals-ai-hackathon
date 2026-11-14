@@ -1,0 +1,22 @@
+id = "toy-unit-shift"
+world = "toy_orders"
+seed = 0
+description = "Pipeline smoke test: unit change documented only in a changelog."
+difficulty = "toy"
+question = "What was total Q3 2026 (July-September) revenue in EUR, from the orders export in `/app`?"
+tolerance_rel = 0.001
+clue = "changelog"
+
+[world_params]
+n_orders = 60
+
+[[change_events]]
+type = "unit_change"
+cutover = "2026-08-15"
+factor = 100
+field = "amount"
+date_field = "order_date"
+
+[[traps]]
+id = "unit_change"
+keywords = ["cents", "unit", "scale", "eur"]
