@@ -1,7 +1,9 @@
-"""Places the buried clue for each change event."""
+"""Places the buried clues and filler files in the task's data directory."""
 
 
-def place(kind, events):
-    if kind == "changelog":
-        return {"CHANGELOG.txt": "\n".join(e.clue_text() for e in events) + "\n"}
-    raise ValueError(f"unknown clue kind: {kind}")
+def place(events, filler):
+    files = dict(filler)
+    for e in events:
+        for name, text in e.clue_files(e.clue).items():
+            files[name] = files[name] + "\n" + text if name in files and name.endswith(".txt") else text
+    return files

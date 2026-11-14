@@ -16,7 +16,4 @@ cutover = "2026-08-15"
 factor = 100
 field = "amount"
 date_field = "order_date"
-
-[[traps]]
-id = "unit_change"
-keywords = ["cents", "unit", "scale", "eur"]
+clue = "changelog"

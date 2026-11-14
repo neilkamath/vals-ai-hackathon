@@ -1,5 +1,6 @@
 """Renders a Harbor task folder from a spec, recorded files and expected values."""
 import json
+import shutil
 from pathlib import Path
 
 from .grading import GRADE_PY
@@ -19,10 +20,13 @@ HOSTS = '["api.anthropic.com", "api.openai.com"]'
 
 def write(spec, files, expected, solve_py, out_root):
     task = Path(out_root) / spec["id"]
+    shutil.rmtree(task, ignore_errors=True)
     for d in ("environment/data", "tests", "solution"):
         (task / d).mkdir(parents=True, exist_ok=True)
     for name, text in files.items():
-        (task / "environment/data" / name).write_text(text)
+        f = task / "environment/data" / name
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(text)
     (task / "environment/Dockerfile").write_text(DOCKERFILE)
     (task / "instruction.md").write_text(spec["question"].strip() + "\n" + ANSWER_FORMAT)
     (task / "task.toml").write_text(

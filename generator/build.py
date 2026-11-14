@@ -9,25 +9,40 @@ from pathlib import Path
 
 from .core import change_events, clue_placer, task_writer
 from .core.recorder import Recorder
+from .worlds.experiment import ExperimentWorld
 from .worlds.toy_orders import ToyOrdersWorld
 
-WORLDS = {"toy_orders": ToyOrdersWorld}
+WORLDS = {"toy_orders": ToyOrdersWorld, "experiment": ExperimentWorld}
 ROOT = Path(__file__).resolve().parent.parent
 
 
 def build_one(spec_path, out_root):
     spec = tomllib.loads(spec_path.read_text())
-    world = WORLDS[spec["world"]](spec["seed"], spec["world_params"])
+    wp = dict(spec["world_params"])
+    if "window_end" in spec:
+        wp["window_end"] = spec["window_end"]
+    world = WORLDS[spec["world"]](spec["seed"], wp)
     events = [change_events.build_event(e) for e in spec["change_events"]]
-    rows, files = Recorder(world, events).record()
-    files.update(clue_placer.place(spec["clue"], events))
-    truth = world.truth()
-    naive = world.naive_answer(rows)
-    tol = spec["tolerance_rel"]
-    assert abs(naive - truth) > tol * abs(truth), f"{spec['id']}: naive answer passes, trap is not real"
-    expected = {"answer": truth, "tolerance_rel": tol, "traps": spec["traps"]}
+    tables, files = Recorder(world, events, spec["seed"]).record()
+    files.update(clue_placer.place(events, world.filler_files()))
+    truth, naive = world.truth(), world.naive_answer(tables)
+    tol_rel, tol_abs = spec.get("tolerance_rel", 0), spec.get("tolerance_abs", 0)
+    tol = max(tol_rel * abs(truth), tol_abs)
+    clean = spec.get("expected_traps") == []  # trap-free question (paired clean task)
+    if clean:
+        assert abs(naive - truth) <= tol, f"{spec['id']}: window is not clean (naive={naive} truth={truth})"
+    else:
+        assert abs(naive - truth) > tol, f"{spec['id']}: naive answer passes, trap is not real"
+    expected = {"answer": truth, "tolerance_rel": tol_rel, "tolerance_abs": tol_abs,
+                "traps": [] if clean else [{"id": e.trap_id, "keywords": e.keywords} for e in events]}
+    msg = f"truth={truth} naive={naive}"
+    if hasattr(world, "overcorrect_answer"):
+        oc = world.overcorrect_answer(tables)
+        assert abs(oc - truth) > tol, f"{spec['id']}: decoy does not bite (overcorrect={oc} truth={truth})"
+        expected["overcorrect_answer"] = oc
+        msg += f" overcorrect={oc}"
     task_writer.write(spec, files, expected, world.solve_code(events), out_root)
-    print(f"built {spec['id']}: truth={truth} naive={naive}")
+    print(f"built {spec['id']}: {msg}")
 
 
 def main():

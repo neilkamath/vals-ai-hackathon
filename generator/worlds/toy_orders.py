@@ -13,13 +13,13 @@ class ToyOrdersWorld(World):
             day = self.rng.randint(1, 28)
             rows.append({"order_id": f"ORD{i:04d}", "order_date": f"2026-{month:02d}-{day:02d}",
                          "amount": round(self.rng.uniform(10, 500), 2)})
-        return rows
+        return {"orders": rows}
 
     def truth(self):
-        return round(sum(r["amount"] for r in self.rows), 2)
+        return round(sum(r["amount"] for r in self.tables["orders"]), 2)
 
-    def render(self, rows):
-        rows = sorted(rows, key=lambda r: r["order_date"])
+    def render(self, tables):
+        rows = sorted(tables["orders"], key=lambda r: r["order_date"])
         buf = io.StringIO()
         w = csv.writer(buf)
         w.writerow(["order_id", "order_date", "amount"])
@@ -27,8 +27,8 @@ class ToyOrdersWorld(World):
         return {"orders.csv": buf.getvalue(),
                 "README.md": "# Orders export\n\n`orders.csv`: one row per order. `amount` is the order value in EUR.\n"}
 
-    def naive_answer(self, rows):
-        return round(sum(r["amount"] for r in rows), 2)
+    def naive_answer(self, tables):
+        return round(sum(r["amount"] for r in tables["orders"]), 2)
 
     def solve_code(self, events):
         undo = "\n        ".join(e.undo_code() for e in events)
