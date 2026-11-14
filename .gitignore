@@ -1,0 +1,21 @@
+# Private planning and brainstorming, never published
+VALS_HACKS_HANDOFF.md
+notes/
+*:Zone.Identifier
+
+# Raw run outputs: commit only curated summaries and chosen transcripts
+results/*
+!results/.gitkeep
+!results/curated/
+
+# Credentials and local state
+.env
+.env.*
+*.pem
+modal.json
+*.secret
+
+# Python
+__pycache__/
+*.pyc
+.venv/
