@@ -30,6 +30,8 @@ def build_one(spec_path, out_root):
         wp["window_tz"] = spec["window_tz"]
     if "expected_status" in spec:
         wp["expected_status"] = spec["expected_status"]
+    if "status_kind" in spec:
+        wp["status_kind"] = spec["status_kind"]
     world = WORLDS[spec["world"]](spec["seed"], wp)
     events = [change_events.build_event(e) for e in spec["change_events"]]
     tables, files = Recorder(world, events, spec["seed"]).record()

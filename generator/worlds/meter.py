@@ -139,7 +139,29 @@ class MeterWorld(World):
             out["swap_read_as_rollover"] = self.compute(tables, events, swap=False)
         return out
 
+    def _local_days(self):
+        ws, we = self.params["window_start"], self.params["window_end"]
+        d = datetime.fromisoformat(ws)
+        out = []
+        while d < datetime.fromisoformat(we):
+            nxt = d + timedelta(days=1)
+            out.append((d.date().isoformat(), to_utc(d.strftime(FMT), TZ), to_utc(nxt.strftime(FMT), TZ)))
+            d = nxt
+        return out
+
+    def _daily_recorded(self, tables, events):
+        return {day: self.compute(tables, events, bounds=(lo, hi)) for day, lo, hi in self._local_days()}
+
     def status_check(self, tables, events, truth, naive, tol):
+        if self.params.get("status_kind") == "degraded":
+            daily = self._daily_recorded(tables, events)
+            vals = sorted(daily.values())
+            median = vals[len(vals) // 2]
+            low = [d for d, v in daily.items() if v < 0.1 * median]
+            assert len(low) == 1, f"expected exactly one implausibly low day, found {low}"
+            recorded = self.compute(tables, events)
+            assert abs(recorded - truth) > tol, f"recorded total {recorded} is close to the true {truth}"
+            return f"low_day={low[0]} ({daily[low[0]]} kWh vs median {median}) recorded_total={recorded} true_total={truth}"
         """Unanswerable tasks: the question window must contain a long frozen register, and the recorded total must be wrong."""
         lo, hi = self._utc_bounds()
         win = [r for r in tables["readings"] if lo < r["ts"] <= hi]
@@ -153,6 +175,25 @@ class MeterWorld(World):
         return f"frozen_run={best}h recorded_total={recorded} true_total={truth}"
 
     def solve_code(self, events):
+        if self.params.get("expected_status") and self.params.get("status_kind") == "degraded":
+            m = next((e for e in events if e.trap_id == "multiplier_change"), None)
+            days = [(d, lo, hi) for d, lo, hi in self._local_days()]
+            return (
+                "#!/bin/bash\npython3 - <<'PY'\nimport csv, json\n"
+                "rows = list(csv.DictReader(open('/app/readings.csv')))\n"
+                f"days = {days!r}\n"
+                f"cut = {to_utc(m.cutover, TZ) if m else None!r}\nfactor = {m.factor if m else 1}\n"
+                "inc, prev = [], None\nfor r in rows:\n    reg = float(r['register_kwh'])\n"
+                "    if prev is not None:\n        d = reg - prev\n        if d < 0: d += 1000000.0\n"
+                "        if cut and r['ts'] > cut: d *= factor\n        inc.append((r['ts'], d))\n    prev = reg\n"
+                "daily = {day: sum(d for ts, d in inc if lo < ts <= hi) for day, lo, hi in days}\n"
+                "vals = sorted(daily.values())\nmedian = vals[len(vals) // 2]\n"
+                "low = [d for d, v in daily.items() if v < 0.1 * median]\nassert low, 'no implausible day'\n"
+                "json.dump({'status': 'cannot_determine', 'reason': f'consumption on {low[0]} is implausibly low "
+                "({daily[low[0]]:.1f} kWh against a typical {median:.0f}), so the meter looks faulty that day and the "
+                "requested total cannot be relied on', "
+                f"'flags': {[e.flag_text() for e in events if e.trap_id == 'degraded_meter']!r}}}, "
+                "open('/app/answer.json', 'w'))\nPY\n")
         if self.params.get("expected_status"):
             lo, hi = self._utc_bounds()
             return (

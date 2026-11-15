@@ -180,5 +180,43 @@ class MeterSwap:
         return "if r['meter_id'] != last_id:\n        prev = 0.0  # new meter starts at 0.0\n    last_id = r['meter_id']"
 
 
-REGISTRY = {"stuck_meter": StuckMeter, "meter_swap": MeterSwap, "utc_timestamps": UtcTimestamps, "multiplier_change": MultiplierChange,
+@dataclass
+class DegradedMeter:
+    """A failing sensor under-reads (reports `factor` of the true energy) between start and end, then recovers.
+
+    The energy it missed never appears in the register. No file mentions it; the evidence is one implausibly low
+    day compared with comparable days. There is no frozen run.
+    """
+    start: str
+    end: str
+    factor: float = 0.01
+    tz: str = "America/Los_Angeles"
+    clue: str = "none"
+    trap_id = "degraded_meter"
+    keywords = ["degraded", "faulty", "fault", "implausibly low", "implausible", "anomal", "outlier", "under-read",
+                "under read", "underread", "sensor failure", "suspicious", "too low", "near zero", "near-zero",
+                "unusually low", "dropout", "drop-out"]
+
+    def apply(self, tables, rng):
+        lost, prev = 0.0, None
+        for r in tables["readings"]:
+            true_reg = r["register"]
+            loc = local_str(r["utc"], self.tz)
+            if prev is not None and self.start < loc <= self.end:
+                lost += (true_reg - prev) * (1 - self.factor)
+            prev = true_reg
+            r["register"] = true_reg - lost
+
+    def clue_files(self, kind):
+        return {}
+
+    def flag_text(self):
+        return ("one day's consumption is implausibly low compared with comparable days; the meter looks faulty "
+                "that day, so the true consumption is unknown")
+
+    def undo_code(self):
+        return "pass"
+
+
+REGISTRY = {"degraded_meter": DegradedMeter, "stuck_meter": StuckMeter, "meter_swap": MeterSwap, "utc_timestamps": UtcTimestamps, "multiplier_change": MultiplierChange,
             "register_rollover": RegisterRollover}
