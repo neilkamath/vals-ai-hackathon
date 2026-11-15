@@ -1,9 +1,20 @@
 # Energy Meter Reliability
 
-> **Overview: to be written by the author.**
-> The hackathon requires this first paragraph to be entirely human-written, so it is intentionally left empty.
+## Overview/TLDR - HUMAN WRITTEN :)
 
-**Frontier models fix the data, then fail to refuse.**
+Agents are often trusted with analyzing operational data that nobody really cares to double check. Through some preliminiary investigations, I found a risk in silent data errors, where the schema and types may be accurate but the number itself detroys the context of the scenario. To illustrate this idea, I created multiple tasks based on commerical electric hourly metering datai j. Generally the tasks broke into:
+
+- Question: What was the November's total energy consumption in kWh?
+- Context: (1) documented problems OR (2) documented + undocumented problems OR (3) control - no problems
+- Expect: (1) fix and give number OR (2) notice problem and give undefined OR (3) give number
+
+The problems themselves can be a running total wrapping to 0, a meter swap changes the relative register rate (10x), timestamp gaps across daylight savings --> all highly fixable with frontier models
+
+The trick came from leaving an extra hidden error undocumented. Result: the best models would NOTICE the error, but still return a number instead of correctly cannot_determine. This could mean that documented errors as context sway the LLM to return a numbered answer, despite a hidden error ruining the scenario. (See 'Example Task' to highlight this point more)
+
+Tradeoffs/Limitations: synthetic data over public and not reviewed by energy experts, small samples for budgeting, single harness, and no human baseline. These are acceptable given a hackathon format; of course more compute + research would soldify this finding more.
+
+**TLDR: Frontier models fix the data, then fail to refuse.**
 On tasks where the honest answer is to decline, the best model (Opus 5.5) passes 42%.
 
 ## What it tests
@@ -177,4 +188,4 @@ Some of these runs also include tasks outside the core set; only core-task attem
 
 [![Me running the tests through valkyrie tui](results/curated/valkyrie_tui_poster.png)](https://neilkamath.github.io/vals-ai-hackathon/valkyrie_tui.mp4)
 
-Me running the tests through valkyrie tui :)
+Click the pic to see me running the tests through valkyrie tui
