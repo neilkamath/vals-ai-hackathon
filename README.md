@@ -172,3 +172,9 @@ Some of these runs also include tasks outside the core set; only core-task attem
 - The data is synthetic and modeled on commercial metering; it remains unreviewed by anyone from the energy industry.
 - Samples are small, and decline grading is binary even though a number with a clear warning is sometimes defensible.
 - One harness only, and no human baseline was measured.
+
+## Running it through Valkyrie
+
+[![Me running the tests through valkyrie tui](results/curated/valkyrie_tui_poster.png)](https://neilkamath.github.io/vals-ai-hackathon/valkyrie_tui.mp4)
+
+Me running the tests through valkyrie tui :)
