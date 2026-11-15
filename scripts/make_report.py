@@ -211,7 +211,7 @@ def main():
         pd.DataFrame(pr).round(3).to_csv(OUT / "private_vs_public.csv", index=False)
 
     # =================================== charts ==================================================================
-    sns.set_theme(style="whitegrid", context="talk")
+    sns.set_theme(style="whitegrid", context="talk", rc={"axes.grid.axis": "y"})
     colors = dict(zip(ORDER, sns.color_palette("viridis", len(ORDER))))
 
     # 1. Pareto: reliability vs cost
@@ -275,40 +275,53 @@ def main():
         plt.close(fig)
 
     # 5. Ablations
+    ARMS = {"Hint (nudge to check data quality)": ("no hint", "hint"),
+            "Wording (explicit vs neutral decline rule)": ("explicit rule", "neutral rule")}
+
+    def label_bars(ax, bars):
+        for b in bars:
+            h = b.get_height()
+            ax.text(b.get_x() + b.get_width() / 2, h + 0.03, f"{h * 100:.0f}%", ha="center", va="bottom", fontsize=11)
+
     if len(abl):
         groups = list(abl.group.unique())
-        fig, axes = plt.subplots(1, len(groups), figsize=(5.2 * len(groups), 5), sharey=True)
+        fig, axes = plt.subplots(1, len(groups), figsize=(5.4 * len(groups), 5.2), sharey=True)
         for ax, g in zip(np.atleast_1d(axes), groups):
             d = abl[abl.group == g]
             if g.startswith("Sensor"):
-                ax.bar(d.arm, d.pass_rate, yerr=d.se, capsize=4, color=sns.color_palette("mako", len(d)))
+                bars = ax.bar(d.arm, d.pass_rate, yerr=d.se, capsize=4, color=sns.color_palette("mako", len(d)))
+                label_bars(ax, bars)
             else:
                 cases = list(d.case.unique())
                 xs = np.arange(len(cases))
                 for i, arm in enumerate(("plain", "variant")):
                     dd = d[d.arm == arm].set_index("case").reindex(cases)
-                    ax.bar(xs + (i - 0.5) * 0.38, dd.pass_rate, 0.38, yerr=dd.se, capsize=3, label=arm)
+                    bars = ax.bar(xs + (i - 0.5) * 0.38, dd.pass_rate.fillna(0), 0.38, yerr=dd.se.fillna(0), capsize=3, label=ARMS[g][i])
+                    label_bars(ax, bars)
                 ax.set_xticks(xs)
                 ax.set_xticklabels(cases, rotation=15)
-                ax.legend(fontsize=10)
+                ax.legend(fontsize=10, loc="upper right")
             ax.set_title(g, fontsize=12)
-            ax.set_ylim(0, 1.05)
-        np.atleast_1d(axes)[0].set_ylabel("Pass rate (frontier models pooled, +/-1 SE)")
+            ax.set_ylim(0, 1.25)
+        np.atleast_1d(axes)[0].set_ylabel("Pass rate (frontier models pooled)")
+        fig.suptitle("Ablations (error bars: +/-1 SE; n is small)", fontsize=14)
         fig.tight_layout()
         fig.savefig(OUT / "fig5_ablations.png", dpi=160)
         plt.close(fig)
 
-    # 6. Trap ladder
-    fig, ax = plt.subplots(figsize=(7.5, 5))
-    for m in ORDER:
+    # 6. Trap ladder (small x offsets and distinct styles so overlapping lines stay visible)
+    fig, ax = plt.subplots(figsize=(7.8, 5))
+    styles = {"Haiku 4.5": ":", "gpt-5.2": "--", "gpt-5.4": "-.", "Sonnet 5.5": "-", "Opus 5.5": "-"}
+    for k, m in enumerate(ORDER):
         ys = [task_rate(pub, t, m)[0] for _, t in TRAP_LADDER]
         if not all(np.isnan(ys)):
-            ax.plot([n for n, _ in TRAP_LADDER], ys, "o-", label=m, color=colors[m])
+            off = (k - 2) * 0.045
+            ax.plot([n + off for n, _ in TRAP_LADDER], ys, "o", linestyle=styles[m], label=m, color=colors[m], lw=2, ms=8)
     ax.set_xticks([1, 2, 3, 4])
     ax.set_xlabel("Recording problems to fix")
     ax.set_ylabel("Pass rate")
     ax.set_ylim(-0.05, 1.05)
-    ax.legend(fontsize=10)
+    ax.legend(fontsize=10, loc="center left")
     ax.set_title("Difficulty ladder (answerable energy tasks)")
     fig.tight_layout()
     fig.savefig(OUT / "fig6_trap_ladder.png", dpi=160)
