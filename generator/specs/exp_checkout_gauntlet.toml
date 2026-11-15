@@ -1,0 +1,46 @@
+id = "exp-checkout-gauntlet"
+world = "experiment"
+seed = 1
+description = "Four recording problems (bots with no clue, retries, reassignment, event rename) plus refunds to join, in a pile of unrelated files."
+difficulty = "very-hard"
+question = """In the checkout experiment, what was the lift in net revenue per customer (treatment minus control, in USD)?
+
+Net revenue is the revenue from completed purchases minus refunds. Net revenue per customer is that total divided by the number of customers assigned to that arm, including customers with no purchases. Use all of the data in `/app`."""
+tolerance_abs = 0.01
+clue = "mixed"
+
+[world_params]
+n_users = 3000
+noise = 60
+refund_rate = 0.08
+start = "2026-02-16"
+days = 42
+base_rate = 0.03
+lift = 1.15
+repeat_rate = 0.06
+whale_rate = 0.003
+
+[[change_events]]
+type = "sticky_reassignment"
+incident = "2026-03-05"
+frac = 0.15
+clue = "chat_export"
+noise_lines = 300
+
+[[change_events]]
+type = "duplicate_retries"
+from_date = "2026-03-09"
+rate = 0.3
+clue = "etl_script"
+pad = 30
+
+[[change_events]]
+type = "event_rename"
+cutover = "2026-03-12"
+clue = "migration_sql"
+
+[[change_events]]
+type = "bot_traffic"
+n_bots = 200
+treat_frac = 0.85
+clue = "none"

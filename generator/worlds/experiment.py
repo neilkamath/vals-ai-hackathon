@@ -25,7 +25,7 @@ def _csv(rows, cols):
     return buf.getvalue()
 
 
-def _lift(arm_of, events, types, window):
+def _lift(arm_of, events, types, window, refunds=None):
     n = {"control": 0, "treatment": 0}
     for a in arm_of.values():
         n[a] += 1
@@ -36,6 +36,14 @@ def _lift(arm_of, events, types, window):
         a = arm_of.get(e["user_id"])
         if a:
             rev[a] += float(e["amount"])
+    if refunds:
+        owner = {}
+        for e in events:
+            owner.setdefault(e["request_id"], e["user_id"])
+        for f in refunds:
+            a = arm_of.get(owner.get(f["request_id"]))
+            if a:
+                rev[a] -= float(f["amount"])
     return round(rev["treatment"] / n["treatment"] - rev["control"] / n["control"], 4)
 
 
@@ -69,7 +77,17 @@ class ExperimentWorld(World):
                     for typ, tt, a in (("add_to_cart", cart_t, 0.0), (PURCHASE, ot, amt)):
                         events.append({"event_id": new_id(rng, used), "request_id": new_id(rng, used, "req-"),
                                        "user_id": uid, "ts": tt.strftime(TS), "event_type": typ, "amount": a})
-        return {"assignments": assignments, "events": events}
+        refunds = []
+        if p.get("refund_rate"):
+            rr = random.Random(f"refund-{self.seed}")
+            rids = set()
+            for e in events:
+                if e["event_type"] == PURCHASE and rr.random() < p["refund_rate"]:
+                    amt = e["amount"] if rr.random() < 0.5 else round(e["amount"] * rr.choice([0.25, 0.5, 0.75]), 2)
+                    ts = (datetime.strptime(e["ts"], TS) + timedelta(days=rr.randint(1, 9))).strftime(TS)
+                    refunds.append({"refund_id": new_id(rr, rids, "rf-"), "request_id": e["request_id"],
+                                    "ts": ts, "amount": amt})
+        return {"assignments": assignments, "events": events, "refunds": refunds}
 
     def _window(self):
         return self.params.get("window_end")
@@ -77,7 +95,7 @@ class ExperimentWorld(World):
     def truth(self):
         w = self._window()
         arm_of = {a["user_id"]: a["arm"] for a in self.tables["assignments"] if not w or a["assigned_at"] <= w}
-        return _lift(arm_of, self.tables["events"], {PURCHASE}, w)
+        return _lift(arm_of, self.tables["events"], {PURCHASE}, w, self.tables.get("refunds"))
 
     def render(self, tables):
         assigns = sorted(tables["assignments"], key=lambda r: (r["assigned_at"], r["user_id"]))
@@ -92,9 +110,15 @@ class ExperimentWorld(World):
             "- `amount`: purchase value in USD (0 for non-purchase events)\n\n"
             "Metrics are computed over human customers.\n"
             "Large orders (over $1,500) come from verified wholesale accounts and are valid.\n")
+        refunds = sorted(tables.get("refunds", []), key=lambda r: r["ts"])
+        if refunds:
+            readme += ("\n## refunds.csv\n- `refund_id`, `request_id` (the original purchase), `ts`, "
+                       "`amount` (USD refunded, full or partial)\n")
         files = {"assignments.csv": _csv(assigns, ["user_id", "arm", "assigned_at"]),
                  "events.csv": _csv(events, ["event_id", "request_id", "user_id", "ts", "event_type", "amount"]),
                  "README.md": readme}
+        if refunds:
+            files["refunds.csv"] = _csv(refunds, ["refund_id", "request_id", "ts", "amount"])
         return files
 
     def filler_files(self):
@@ -145,7 +169,7 @@ class ExperimentWorld(World):
                     continue
                 seen.add(key)
             kept.append(dict(e, event_type=PURCHASE if e["event_type"] == "order_placed" else e["event_type"]))
-        return _lift(arm_of, kept, {PURCHASE}, w)
+        return _lift(arm_of, kept, {PURCHASE}, w, tables.get("refunds"))
 
     def solve_code(self, events):
         if self.params.get("expected_status"):
@@ -173,6 +197,11 @@ class ExperimentWorld(World):
             "for r in event_rows:\n"
             "    if r['event_type'] != 'checkout_complete' or (W and r['ts'][:10] > W):\n        continue\n"
             "    a = arm_of.get(r['user_id'])\n    if a:\n        rev[a] += float(r['amount'])\n"
+            + ("import os\nif os.path.exists('/app/refunds.csv'):\n"
+               "    owner = {}\n    for r in event_rows:\n        owner.setdefault(r['request_id'], r['user_id'])\n"
+               "    for f in csv.DictReader(open('/app/refunds.csv')):\n"
+               "        a = arm_of.get(owner.get(f['request_id']))\n        if a:\n            rev[a] -= float(f['amount'])\n"
+               if self.params.get("refund_rate") else "") +
             "lift = rev['treatment'] / n['treatment'] - rev['control'] / n['control']\n"
             f"flags = {[e.flag_text() for e in events] if not w else []!r}\n"
             "json.dump({'answer': round(lift, 4), 'flags': flags}, open('/app/answer.json', 'w'))\nPY\n")
