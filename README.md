@@ -92,6 +92,8 @@ It applied every documented fix, saw the near-zero holiday, explained it away, a
 
 ## Results (13 core tasks, mini-SWE-agent through Valkyrie on Modal)
 
+![Accuracy vs cost per attempt for five models on the 13 core tasks](results/curated/cost_vs_accuracy.png)
+
 | Model | Accuracy (±SE) | Fixable | Decline | Controls | Cost / attempt | Attempts |
 |---|---|---|---|---|---|---|
 | Opus 5.5 | 73.1% (±12.2) | 100% | 42% | 100% | $0.104 | 16 |
