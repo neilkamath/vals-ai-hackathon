@@ -1,1 +1,0 @@
-2026-08-15  Billing export v2 deployed. 'amount' is now stored in cents (integer) for all rows dated on or after 2026-08-15. Earlier rows are unchanged (EUR).
