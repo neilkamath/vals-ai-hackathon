@@ -1,0 +1,2 @@
+-- housekeeping
+ANALYZE carts;

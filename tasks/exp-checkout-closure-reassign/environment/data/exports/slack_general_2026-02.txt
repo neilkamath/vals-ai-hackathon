@@ -1,0 +1,150 @@
+[02/01 08:35] tomas: out tomorrow, ping marco for the airflow DAG
+[02/01 10:28] marco: retro notes are up, feature flag cleanup is on the list
+[02/01 10:33] ana: who owns the feature flag cleanup?
+[02/01 11:54] sam: heads up, the mobile build will be down for ten minutes
+[02/01 13:57] tomas: lunch?
+[02/01 16:03] lena: I'll look at the billing sync after lunch
+[02/01 18:25] ines: I'll look at the pricing page test after lunch
+[02/01 18:33] jules: can someone review my PR for the warehouse backfill
+[02/01 19:45] dev: the vpn token skipped twice last night
+[02/02 08:30] kofi: out tomorrow, ping marco for the cohort report
+[02/02 09:01] ana: coffee run, anyone?
+[02/02 14:55] priya: lunch?
+[02/02 15:55] marco: mobile build is green again
+[02/02 17:57] jules: staging deploy is green again
+[02/02 17:57] jules: ticket filed for the billing sync
+[02/03 11:32] lena: the pricing page test skipped twice last night
+[02/03 16:42] kofi: heads up, the staging deploy will be down for ten minutes
+[02/04 11:48] lena: pushed a fix for the dashboard refresh
+[02/04 13:49] sam: coffee run, anyone?
+[02/04 16:22] lena: oncall handoff is green again
+[02/04 16:25] sam: I'll look at the churn model after lunch
+[02/04 16:39] marco: I'll look at the search index after lunch
+[02/04 16:46] priya: the staging deploy skipped twice last night
+[02/04 17:05] priya: email campaign is green again
+[02/04 17:48] sam: I'll look at the nightly export after lunch
+[02/04 19:14] dev: lunch?
+[02/05 08:25] priya: is the search index supposed to take this long?
+[02/05 10:45] lena: cohort report is green again
+[02/05 13:57] marco: who owns the dashboard refresh?
+[02/05 17:58] ines: the pricing page test skipped twice last night
+[02/05 19:46] lena: standup in 5
+[02/06 09:31] lena: is the nightly export supposed to take this long?
+[02/06 10:17] lena: the oncall handoff skipped twice last night
+[02/06 12:17] kofi: out tomorrow, ping marco for the oncall handoff
+[02/06 14:22] sam: I'll look at the oncall handoff after lunch
+[02/06 14:34] tomas: lunch?
+[02/06 14:40] kofi: retro notes are up, dashboard refresh is on the list
+[02/06 14:47] marco: out tomorrow, ping marco for the search index
+[02/07 10:20] dev: lunch?
+[02/07 15:38] kofi: retro notes are up, staging deploy is on the list
+[02/07 19:17] ines: thanks, that fixed the nightly export
+[02/08 14:56] lena: retro notes are up, oncall handoff is on the list
+[02/08 15:54] tomas: anyone seen the warehouse backfill fail again?
+[02/08 18:51] tomas: who owns the staging deploy?
+[02/09 08:46] lena: thanks, that fixed the churn model
+[02/09 09:55] lena: heads up, the pricing page test will be down for ten minutes
+[02/09 13:05] sam: standup in 5
+[02/09 16:34] ines: can someone review my PR for the search index
+[02/09 18:15] lena: ticket filed for the staging deploy
+[02/09 18:59] priya: coffee run, anyone?
+[02/10 08:18] priya: who owns the billing sync?
+[02/10 10:31] jules: who owns the dashboard refresh?
+[02/10 18:48] ana: I'll look at the feature flag cleanup after lunch
+[02/11 14:00] priya: heads up, the airflow DAG will be down for ten minutes
+[02/11 15:49] sam: pushed a fix for the feature flag cleanup
+[02/11 17:22] dev: lunch?
+[02/11 19:21] priya: ticket filed for the email campaign
+[02/12 08:17] kofi: standup in 5
+[02/12 08:32] dev: standup in 5
+[02/12 09:28] kofi: thanks, that fixed the feature flag cleanup
+[02/12 12:47] marco: can someone review my PR for the billing sync
+[02/12 14:04] ana: standup in 5
+[02/13 10:19] dev: who owns the cohort report?
+[02/13 11:45] sam: out tomorrow, ping marco for the search index
+[02/13 11:53] sam: coffee run, anyone?
+[02/13 12:58] jules: pushed a fix for the email campaign
+[02/13 13:16] marco: I'll look at the vpn token after lunch
+[02/13 15:19] sam: vpn token is green again
+[02/13 19:23] ana: thanks, that fixed the pricing page test
+[02/14 08:45] dev: lunch?
+[02/14 12:27] tomas: lunch?
+[02/14 13:51] ines: is the mobile build supposed to take this long?
+[02/14 16:41] jules: coffee run, anyone?
+[02/15 08:19] tomas: pushed a fix for the churn model
+[02/15 10:54] lena: heads up, the airflow DAG will be down for ten minutes
+[02/15 15:17] ana: can someone review my PR for the email campaign
+[02/15 16:21] priya: anyone seen the email campaign fail again?
+[02/15 16:35] ana: coffee run, anyone?
+[02/15 18:20] ines: can someone review my PR for the feature flag cleanup
+[02/16 08:06] marco: who owns the airflow DAG?
+[02/16 16:48] dev: lunch?
+[02/16 19:33] kofi: can someone review my PR for the warehouse backfill
+[02/17 08:40] tomas: retro notes are up, feature flag cleanup is on the list
+[02/17 12:09] kofi: lunch?
+[02/17 12:34] tomas: pushed a fix for the cdn cache
+[02/17 13:13] lena: ticket filed for the search index
+[02/17 13:39] priya: standup in 5
+[02/17 14:00] dev: the oncall handoff skipped twice last night
+[02/17 18:43] kofi: heads up, the warehouse backfill will be down for ten minutes
+[02/18 10:08] ines: the cdn cache skipped twice last night
+[02/18 15:11] priya: who owns the staging deploy?
+[02/18 16:05] marco: lunch?
+[02/18 18:16] jules: lunch?
+[02/18 19:18] marco: cohort report is green again
+[02/19 11:47] marco: lunch?
+[02/19 13:00] sam: dashboard refresh is green again
+[02/19 13:35] dev: retro notes are up, feature flag cleanup is on the list
+[02/19 15:37] ana: I'll look at the nightly export after lunch
+[02/19 16:20] jules: can someone review my PR for the vpn token
+[02/20 09:15] lena: is the search index supposed to take this long?
+[02/20 11:13] ines: retro notes are up, dashboard refresh is on the list
+[02/20 11:48] tomas: anyone seen the email campaign fail again?
+[02/20 16:01] ana: is the cohort report supposed to take this long?
+[02/20 17:14] sam: dashboard refresh is green again
+[02/20 17:45] lena: is the oncall handoff supposed to take this long?
+[02/20 18:10] tomas: is the search index supposed to take this long?
+[02/20 18:28] priya: heads up, the mobile build will be down for ten minutes
+[02/20 19:46] jules: standup in 5
+[02/21 09:08] ana: the billing sync skipped twice last night
+[02/21 16:46] dev: retro notes are up, dashboard refresh is on the list
+[02/22 11:37] priya: coffee run, anyone?
+[02/22 14:15] kofi: the search index skipped twice last night
+[02/22 15:38] jules: retro notes are up, cdn cache is on the list
+[02/23 08:53] tomas: standup in 5
+[02/23 09:07] lena: ticket filed for the email campaign
+[02/23 09:14] ana: can someone review my PR for the cdn cache
+[02/23 12:57] priya: ticket filed for the mobile build
+[02/23 13:00] kofi: retro notes are up, nightly export is on the list
+[02/23 14:53] jules: out tomorrow, ping marco for the feature flag cleanup
+[02/23 17:56] kofi: who owns the billing sync?
+[02/24 08:28] jules: standup in 5
+[02/24 10:15] ines: can someone review my PR for the dashboard refresh
+[02/24 19:53] tomas: thanks, that fixed the staging deploy
+[02/25 08:06] tomas: retro notes are up, staging deploy is on the list
+[02/25 08:41] ana: standup in 5
+[02/25 09:50] jules: the nightly export skipped twice last night
+[02/25 09:53] priya: can someone review my PR for the mobile build
+[02/25 10:47] ines: I'll look at the search index after lunch
+[02/25 14:00] sam: lunch?
+[02/25 15:07] tomas: ticket filed for the staging deploy
+[02/25 15:11] jules: out tomorrow, ping marco for the churn model
+[02/25 17:34] lena: is the vpn token supposed to take this long?
+[02/25 18:44] priya: ticket filed for the cohort report
+[02/26 08:15] ana: out tomorrow, ping marco for the pricing page test
+[02/26 08:59] marco: who owns the feature flag cleanup?
+[02/26 12:27] kofi: ticket filed for the pricing page test
+[02/26 12:40] kofi: thanks, that fixed the billing sync
+[02/26 12:52] lena: I'll look at the cdn cache after lunch
+[02/26 17:44] marco: out tomorrow, ping marco for the cdn cache
+[02/26 18:23] tomas: can someone review my PR for the staging deploy
+[02/27 10:24] jules: can someone review my PR for the staging deploy
+[02/27 12:46] priya: the mobile build skipped twice last night
+[02/27 13:31] priya: retro notes are up, cdn cache is on the list
+[02/27 17:13] lena: the airflow DAG skipped twice last night
+[02/28 08:41] sam: I'll look at the warehouse backfill after lunch
+[02/28 09:15] dev: pushed a fix for the billing sync
+[02/28 10:09] priya: is the email campaign supposed to take this long?
+[02/28 11:17] priya: I'll look at the oncall handoff after lunch
+[02/28 12:39] jules: ticket filed for the email campaign
+[02/28 19:04] lena: lunch?

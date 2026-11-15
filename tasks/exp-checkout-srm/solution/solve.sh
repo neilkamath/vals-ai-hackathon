@@ -2,7 +2,10 @@
 python3 - <<'PY'
 import collections, csv, json
 ev = collections.Counter(r['user_id'] for r in csv.DictReader(open('/app/events.csv')))
-rows = [r for r in csv.DictReader(open('/app/assignments.csv')) if ev[r['user_id']] < 100]
+first = {}
+for r in sorted(csv.DictReader(open('/app/assignments.csv')), key=lambda r: r['assigned_at']):
+    first.setdefault(r['user_id'], r)
+rows = [r for u, r in first.items() if ev[u] < 100]
 n = {'control': 0, 'treatment': 0}
 for r in rows:
     n[r['arm']] += 1

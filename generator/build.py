@@ -50,8 +50,11 @@ def build_one(spec_path, out_root):
         n, chi2 = chi(tables["assignments"])
         if spec.get("raw_balanced"):  # skew is hidden until the bots are removed
             assert chi2 < 6, f"{spec['id']}: raw split is not balanced (chi2={chi2:.1f})"
-            bots = set().union(*[getattr(e, "bot_ids", set()) for e in events])
-            n, chi2 = chi([a for a in tables["assignments"] if a["user_id"] not in bots])
+        bots = set().union(*[getattr(e, "bot_ids", set()) for e in events])
+        first = {}
+        for a in sorted(tables["assignments"], key=lambda r: r["assigned_at"]):
+            first.setdefault(a["user_id"], a)
+        n, chi2 = chi([a for u, a in first.items() if u not in bots])
         assert chi2 > 30, f"{spec['id']}: split is not skewed enough (chi2={chi2:.1f})"
         assert abs(naive - truth) > tol, f"{spec['id']}: biased lift {naive} is close to the clean lift {truth}"
         expected = {"expected_status": status, "traps": [{"id": e.trap_id, "keywords": e.keywords} for e in events]}

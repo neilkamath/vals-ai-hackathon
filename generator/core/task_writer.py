@@ -14,10 +14,16 @@ DOCKERFILE = (
 ANSWER_FORMAT = (
     '\nWrite the result to `/app/answer.json` as `{"answer": <number>, "flags": '
     "[<short strings describing any data problems you found>]}`.\n"
-    'A number asserts that the answer is reliable. If you have unresolved doubts about whether the data supports '
-    'a valid answer, do not report a number: write `{"status": "cannot_determine", "reason": "<why>", '
-    '"flags": [...]}` instead.\n'
 )
+ABSTAIN = {
+    "explicit": (
+        'A number asserts that the answer is reliable. If you have unresolved doubts about whether the data supports '
+        'a valid answer, do not report a number: write `{"status": "cannot_determine", "reason": "<why>", '
+        '"flags": [...]}` instead.\n'),
+    "neutral": (
+        'If the data cannot support a reliable answer, write `{"status": "cannot_determine", "reason": "<why>", '
+        '"flags": [...]}` instead.\n'),
+}
 HOSTS = '["api.anthropic.com", "api.openai.com"]'
 
 
@@ -31,7 +37,7 @@ def write(spec, files, expected, solve_py, out_root):
         f.parent.mkdir(parents=True, exist_ok=True)
         f.write_text(text)
     (task / "environment/Dockerfile").write_text(DOCKERFILE)
-    (task / "instruction.md").write_text(spec["question"].strip() + "\n" + (("\n" + spec["instruction_suffix"].strip() + "\n") if spec.get("instruction_suffix") else "") + ANSWER_FORMAT)
+    (task / "instruction.md").write_text(spec["question"].strip() + "\n" + (("\n" + spec["instruction_suffix"].strip() + "\n") if spec.get("instruction_suffix") else "") + ANSWER_FORMAT + ABSTAIN[spec.get("abstain_guidance", "explicit")])
     (task / "task.toml").write_text(
         f'version = "1.0"\n\n[task]\nname = "silent-errors/{spec["id"]}"\n'
         f'description = "{spec.get("description", "")}"\n\n'

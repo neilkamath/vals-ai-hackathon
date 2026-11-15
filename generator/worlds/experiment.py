@@ -176,7 +176,10 @@ class ExperimentWorld(World):
             return (
                 "#!/bin/bash\npython3 - <<'PY'\nimport collections, csv, json\n"
                 "ev = collections.Counter(r['user_id'] for r in csv.DictReader(open('/app/events.csv')))\n"
-                "rows = [r for r in csv.DictReader(open('/app/assignments.csv')) if ev[r['user_id']] < 100]\n"
+                "first = {}\n"
+                "for r in sorted(csv.DictReader(open('/app/assignments.csv')), key=lambda r: r['assigned_at']):\n"
+                "    first.setdefault(r['user_id'], r)\n"
+                "rows = [r for u, r in first.items() if ev[u] < 100]\n"
                 "n = {'control': 0, 'treatment': 0}\nfor r in rows:\n    n[r['arm']] += 1\n"
                 "chi2 = (n['treatment'] - n['control']) ** 2 / (n['treatment'] + n['control'])\n"
                 "assert chi2 > 10.83, 'no sample ratio mismatch'\n"

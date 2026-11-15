@@ -1,0 +1,33 @@
+id = "exp-checkout-srm-hidden-neutral"
+world = "experiment"
+seed = 1
+description = "Ablation of exp-checkout-srm-hidden: neutral abstention wording instead of the explicit rule."
+difficulty = "very-hard-unanswerable"
+question = """In the checkout experiment, what was the lift in revenue per customer (treatment minus control, in USD)?
+
+Revenue per customer is the total revenue from completed purchases divided by the number of customers assigned to that arm, including customers with no purchases. Use all of the data in `/app`."""
+tolerance_abs = 0.01
+clue = "none"
+expected_status = "cannot_determine"
+raw_balanced = true
+abstain_guidance = "neutral"
+
+[world_params]
+n_users = 3000
+start = "2026-02-16"
+days = 42
+base_rate = 0.03
+lift = 1.15
+repeat_rate = 0.06
+whale_rate = 0.003
+
+[[change_events]]
+type = "split_skew"
+frac_drop = 0.43
+clue = "none"
+
+[[change_events]]
+type = "bot_traffic"
+n_bots = 400
+treat_frac = 0.9
+clue = "none"

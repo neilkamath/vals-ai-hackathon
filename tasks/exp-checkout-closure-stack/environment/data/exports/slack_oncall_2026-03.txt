@@ -1,0 +1,150 @@
+[03/01 08:35] sam: standup in 5
+[03/01 10:14] priya: is the churn model supposed to take this long?
+[03/01 10:42] priya: is the airflow DAG supposed to take this long?
+[03/01 11:32] marco: heads up, the billing sync will be down for ten minutes
+[03/01 13:37] ana: retro notes are up, feature flag cleanup is on the list
+[03/01 14:01] ana: can someone review my PR for the email campaign
+[03/01 14:36] tomas: cdn cache is green again
+[03/01 15:12] ana: thanks, that fixed the oncall handoff
+[03/01 15:14] sam: coffee run, anyone?
+[03/01 15:58] marco: thanks, that fixed the dashboard refresh
+[03/01 16:45] priya: I'll look at the billing sync after lunch
+[03/01 17:39] jules: thanks, that fixed the cdn cache
+[03/01 17:43] sam: thanks, that fixed the churn model
+[03/01 18:59] priya: the pricing page test skipped twice last night
+[03/02 13:14] ines: cohort report is green again
+[03/02 13:20] sam: retro notes are up, email campaign is on the list
+[03/02 18:57] ines: is the email campaign supposed to take this long?
+[03/03 09:34] ines: I'll look at the email campaign after lunch
+[03/03 11:10] sam: pushed a fix for the vpn token
+[03/03 14:15] priya: ticket filed for the cohort report
+[03/03 14:44] ines: heads up, the search index will be down for ten minutes
+[03/03 16:41] marco: anyone seen the pricing page test fail again?
+[03/03 17:28] jules: standup in 5
+[03/03 18:18] priya: standup in 5
+[03/04 14:07] jules: standup in 5
+[03/05 12:53] marco: coffee run, anyone?
+[03/05 14:43] kofi: coffee run, anyone?
+[03/05 15:19] ines: who owns the search index?
+[03/05 15:41] tomas: I'll look at the feature flag cleanup after lunch
+[03/05 18:46] sam: is the airflow DAG supposed to take this long?
+[03/05 18:58] marco: heads up, the billing sync will be down for ten minutes
+[03/05 19:15] kofi: is the dashboard refresh supposed to take this long?
+[03/05 19:28] kofi: coffee run, anyone?
+[03/05 19:51] sam: heads up, the cdn cache will be down for ten minutes
+[03/06 10:59] tomas: standup in 5
+[03/06 11:50] priya: heads up, the oncall handoff will be down for ten minutes
+[03/06 15:34] kofi: thanks, that fixed the cohort report
+[03/06 17:20] priya: can someone review my PR for the feature flag cleanup
+[03/06 18:42] dev: ticket filed for the feature flag cleanup
+[03/07 11:27] lena: is the airflow DAG supposed to take this long?
+[03/07 11:44] marco: thanks, that fixed the pricing page test
+[03/08 10:47] priya: coffee run, anyone?
+[03/08 13:21] lena: heads up, the email campaign will be down for ten minutes
+[03/08 13:46] jules: anyone seen the billing sync fail again?
+[03/09 09:12] ines: can someone review my PR for the staging deploy
+[03/09 09:20] ana: anyone seen the airflow DAG fail again?
+[03/09 09:32] jules: standup in 5
+[03/09 09:42] kofi: out tomorrow, ping marco for the dashboard refresh
+[03/09 10:07] jules: I'll look at the mobile build after lunch
+[03/09 13:49] sam: heads up, the cohort report will be down for ten minutes
+[03/09 14:33] ines: lunch?
+[03/09 15:52] dev: email campaign is green again
+[03/09 17:33] jules: standup in 5
+[03/09 17:42] sam: I'll look at the churn model after lunch
+[03/09 19:20] ana: who owns the airflow DAG?
+[03/10 08:29] kofi: is the churn model supposed to take this long?
+[03/10 10:58] kofi: out tomorrow, ping marco for the warehouse backfill
+[03/10 11:13] jules: coffee run, anyone?
+[03/10 16:50] lena: anyone seen the email campaign fail again?
+[03/10 17:15] kofi: lunch?
+[03/10 18:12] priya: standup in 5
+[03/11 09:47] kofi: is the dashboard refresh supposed to take this long?
+[03/11 11:01] jules: ticket filed for the churn model
+[03/11 13:52] kofi: coffee run, anyone?
+[03/11 15:10] tomas: thanks, that fixed the search index
+[03/11 15:58] lena: pushed a fix for the billing sync
+[03/11 17:46] ines: lunch?
+[03/11 18:51] marco: I'll look at the dashboard refresh after lunch
+[03/11 19:07] sam: mobile build is green again
+[03/12 18:40] kofi: pushed a fix for the pricing page test
+[03/13 10:05] lena: the email campaign skipped twice last night
+[03/13 10:23] dev: I'll look at the email campaign after lunch
+[03/13 10:48] lena: out tomorrow, ping marco for the warehouse backfill
+[03/14 09:07] ana: I'll look at the feature flag cleanup after lunch
+[03/14 09:49] priya: coffee run, anyone?
+[03/14 11:38] ana: who owns the dashboard refresh?
+[03/14 14:01] lena: is the feature flag cleanup supposed to take this long?
+[03/15 08:58] ana: ticket filed for the search index
+[03/15 10:55] jules: standup in 5
+[03/15 13:23] jules: retro notes are up, search index is on the list
+[03/15 13:40] tomas: lunch?
+[03/15 15:12] ana: I'll look at the email campaign after lunch
+[03/15 15:17] jules: I'll look at the dashboard refresh after lunch
+[03/15 18:06] tomas: pushed a fix for the vpn token
+[03/16 08:17] lena: anyone seen the search index fail again?
+[03/16 10:12] lena: pushed a fix for the search index
+[03/16 10:20] dev: can someone review my PR for the billing sync
+[03/16 10:52] lena: standup in 5
+[03/16 11:57] lena: retro notes are up, vpn token is on the list
+[03/16 14:11] tomas: ticket filed for the churn model
+[03/16 17:45] dev: pushed a fix for the email campaign
+[03/16 18:37] tomas: pushed a fix for the churn model
+[03/16 18:58] sam: can someone review my PR for the churn model
+[03/17 08:40] tomas: out tomorrow, ping marco for the nightly export
+[03/17 12:10] sam: lunch?
+[03/17 12:49] kofi: retro notes are up, feature flag cleanup is on the list
+[03/17 13:41] sam: is the search index supposed to take this long?
+[03/17 15:25] lena: who owns the staging deploy?
+[03/17 16:38] tomas: who owns the pricing page test?
+[03/18 11:11] jules: pushed a fix for the pricing page test
+[03/18 13:22] kofi: coffee run, anyone?
+[03/18 13:46] dev: the staging deploy skipped twice last night
+[03/18 14:36] marco: pushed a fix for the email campaign
+[03/18 16:19] jules: is the airflow DAG supposed to take this long?
+[03/19 08:17] dev: coffee run, anyone?
+[03/19 11:44] priya: thanks, that fixed the nightly export
+[03/19 12:41] lena: anyone seen the feature flag cleanup fail again?
+[03/19 17:16] sam: who owns the warehouse backfill?
+[03/19 18:21] jules: is the oncall handoff supposed to take this long?
+[03/20 08:57] ines: coffee run, anyone?
+[03/20 09:39] sam: thanks, that fixed the dashboard refresh
+[03/20 09:50] tomas: heads up, the nightly export will be down for ten minutes
+[03/20 16:25] dev: retro notes are up, dashboard refresh is on the list
+[03/20 17:32] priya: the billing sync skipped twice last night
+[03/20 18:42] marco: ticket filed for the email campaign
+[03/21 10:43] ana: the email campaign skipped twice last night
+[03/21 11:12] sam: out tomorrow, ping marco for the billing sync
+[03/21 16:45] lena: standup in 5
+[03/22 14:23] ana: ticket filed for the oncall handoff
+[03/22 14:46] sam: who owns the search index?
+[03/22 15:26] marco: dashboard refresh is green again
+[03/22 16:37] marco: out tomorrow, ping marco for the churn model
+[03/22 18:35] jules: the feature flag cleanup skipped twice last night
+[03/22 18:51] lena: the nightly export skipped twice last night
+[03/23 08:26] jules: who owns the vpn token?
+[03/23 10:24] dev: I'll look at the cohort report after lunch
+[03/23 10:33] sam: can someone review my PR for the cdn cache
+[03/23 12:00] lena: thanks, that fixed the billing sync
+[03/23 14:50] tomas: the vpn token skipped twice last night
+[03/23 19:38] sam: heads up, the email campaign will be down for ten minutes
+[03/23 19:40] jules: coffee run, anyone?
+[03/24 08:08] kofi: thanks, that fixed the airflow DAG
+[03/24 08:12] jules: standup in 5
+[03/24 12:36] tomas: can someone review my PR for the billing sync
+[03/24 16:12] lena: standup in 5
+[03/25 18:09] dev: lunch?
+[03/26 11:10] lena: is the search index supposed to take this long?
+[03/26 11:22] jules: out tomorrow, ping marco for the oncall handoff
+[03/26 11:49] priya: pushed a fix for the feature flag cleanup
+[03/26 12:44] ines: coffee run, anyone?
+[03/26 16:01] dev: anyone seen the search index fail again?
+[03/26 16:46] ines: lunch?
+[03/26 18:36] dev: standup in 5
+[03/26 19:26] sam: lunch?
+[03/27 14:06] dev: who owns the email campaign?
+[03/27 14:45] sam: anyone seen the airflow DAG fail again?
+[03/27 15:11] marco: out tomorrow, ping marco for the billing sync
+[03/27 18:47] dev: standup in 5
+[03/28 11:33] tomas: standup in 5
+[03/28 12:42] marco: heads up, the dashboard refresh will be down for ten minutes
