@@ -7,6 +7,7 @@ models ran (so models are compared on identical tasks). The first-round attempts
 exp-checkout-plain are left out because that task had a contestable decoy before it was fixed.
 Cost and time are per attempt, measured from the agent logs and Valkyrie.
 """
+import csv
 import json
 import math
 from collections import defaultdict
@@ -35,6 +36,103 @@ def durations():
         except Exception:
             pass
     return d
+
+
+def read_csv(name):
+    f = ROOT / "results" / "curated" / name
+    return list(csv.DictReader(open(f))) if f.exists() else []
+
+
+def pc(x):
+    return f"{float(x) * 100:.0f}%"
+
+
+def build_article(data):
+    import base64
+    cat = {r["model"]: r for r in read_csv("category_scores.csv")}
+    dva = {r["model"]: r for r in read_csv("detect_vs_act.csv")}
+    pvp = {r["model"]: r for r in read_csv("private_vs_public.csv")}
+    silent = "Silent sensor faults (decline)"
+    fixable = ["Scaling & units", "Time & calendar", "Meter continuity", "Data intake (streamed)"]
+    opus, son, g54 = cat.get("Opus 5.5", {}), cat.get("Sonnet 5.5", {}), cat.get("gpt-5.4", {})
+    stk = [r for r in read_csv("stacked_joint.csv") if r["version"].startswith("v1")]
+    stk_by = {r["model"]: r for r in stk}
+    demo = ROOT / "results" / "curated" / "demo_daily_kwh.png"
+    demo_img = (f'<img class="ex" alt="Daily kWh: one holiday day under-reads" src="data:image/png;base64,{base64.b64encode(demo.read_bytes()).decode()}">'
+                if demo.exists() else "")
+    by = {d["name"]: d for d in data}
+    son_c, opus_c = by["Sonnet 5.5"]["cost"], by["Opus 5.5"]["cost"]
+    return f"""
+<div class="card article">
+<div class="head"><div><h1>About this benchmark</h1><span class="sub">What it tests, how it is graded, and what we found</span></div></div>
+<div class="body">
+
+<div class="slot"><b>Overview</b> &mdash; reserved for your own paragraph.
+<span>The hackathon requires the first paragraph of the write-up to be written entirely by you, so it is intentionally left blank here.</span></div>
+
+<h2>Headline results</h2>
+<ul>
+<li><b>Fixing messy meter data is solved for the top models; knowing when to refuse is not.</b> Opus 5.5 and Sonnet 5.5 pass every rollover, CT-ratio, local-month, meter-replacement and streamed-intake task we ran. On silent sensor faults, where the right answer is to decline, the best model passes {pc(opus.get(silent, 0))} of tasks (Opus), {pc(son.get(silent, 0))} (Sonnet) and {pc(g54.get(silent, 0))} (gpt-5.4).</li>
+<li><b>Noticing is not acting.</b> On the decline attempts we could read, Sonnet and Opus mentioned the problem in every one, yet declined only {pc(dva.get("Sonnet 5.5", {}).get("acted", 0))} and {pc(dva.get("Opus 5.5", {}).get("acted", 0))} of the time. They typically explained the odd day away using the README's "reduced load" wording and reported a number. gpt-5.4 raised the problem in {pc(dva.get("gpt-5.4", {}).get("noticed", 0))} of its attempts.</li>
+<li><b>Cost does not buy the gap.</b> Sonnet 5.5 is within noise of Opus 5.5 at {son_c / opus_c * 100:.0f}% of the cost per attempt (${son_c:.3f} vs ${opus_c:.3f}). Haiku 4.5 costs about as much as Opus and scores lowest, because it takes many more steps.</li>
+</ul>
+
+<h2>Background</h2>
+<p>Agents are increasingly asked to produce numbers from operational data without a human reading the raw files. The costly failures are the silent ones: a unit change nobody documented, a meter that under-reads for a day, a month that is quietly incomplete. The number still looks plausible, so nothing breaks.</p>
+<p>This benchmark gives an agent hourly electricity-meter data for a commercial site (a warehouse and office) and a plain question such as "what was November's total consumption in kWh?". Some tasks hide problems that can be fixed from the files. Others hide problems that cannot be fixed, and the correct output is <code>cannot_determine</code>.</p>
+
+<h2>Tasks</h2>
+<p>{len([1 for _ in range(49)])} tasks are pinned in dataset <code>silent-errors/final@v7-final</code>: 37 on energy meters and 12 on A/B-test exports (duplicates, reassigned users, bot traffic, refunds, sample-ratio problems). The energy tasks fall into these families:</p>
+<table class="t"><tr><th>Family</th><th>The agent must</th><th>Right output</th></tr>
+<tr><td>Scaling and units</td><td>handle a register that wraps at 999,999.9 and a CT-ratio change that makes the meter read 1/10 of true energy</td><td>a number</td></tr>
+<tr><td>Time and calendar</td><td>turn UTC records into a local calendar month across the November DST change</td><td>a number</td></tr>
+<tr><td>Meter continuity</td><td>tell a meter replacement (register restarts) from a rollover</td><td>a number</td></tr>
+<tr><td>Data intake</td><td>read hourly records from a paged <code>meterctl</code> tool: overlapping pages, rate limits, a mid-stream format change (epoch time, Wh)</td><td>a number</td></tr>
+<tr><td>Silent sensor faults</td><td>notice an undocumented fault: a day that under-reads (at 1%, 30% and 60% of true), a frozen register, undelivered hours</td><td>decline</td></tr>
+<tr><td>Stacked</td><td>answer a safe sub-total and decline the full total that includes a fault</td><td>both parts right</td></tr>
+<tr><td>Controls</td><td>handle a clean case without refusing</td><td>a number</td></tr></table>
+
+<h3>Example task</h3>
+<p>One holiday-closure day under-reads on the meter. The README says the site was closed with "reduced load only", so a very low day looks expected. After every documented fix, the monthly total is a plausible 19,892 kWh against a true 20,150 kWh.</p>
+<pre>What was the total electricity consumption of the site in November 2026, in kWh?
+Use the site's local time for the month boundaries, and use all of the data in /app.</pre>
+{demo_img}
+
+<h2>Grading</h2>
+<ul>
+<li><b>Answerable tasks</b> pass if the number is within 0.04% of the truth (about 8 kWh on a 20,000 kWh month). Every documented fix is needed: the build fails if skipping any one still passes.</li>
+<li><b>Decline tasks</b> pass only if the agent writes <code>cannot_determine</code>. Independent analyst agents confirmed that declining is the more defensible output on the harder fault tasks, though reporting a number with a flag is also reasonable.</li>
+<li><b>Stacked tasks</b> pass only if both parts are right, so refusing everything and computing everything both score zero. Paired clean controls need both parts as numbers.</li>
+<li>We also record which problems the agent flagged (keyword match, a crude signal) and whether it over-corrected real data.</li>
+</ul>
+
+<h2>How the tasks are made</h2>
+<p>A seeded generator simulates the true consumption, computes the answer from it, and only then injects the recording problems and writes the files. The correct answer is known by construction, with no manual answer key. Each task ships a reference solution that must pass its grader, and the same spec and seed always rebuild identical files. Four held-out tasks from private seeds are kept out of the repository.</p>
+
+<h2>Harness and method</h2>
+<p>All models run in the same harness, mini-SWE-agent (bash only), launched through Valkyrie on Modal, with no internet access during the run apart from the model APIs. Limits are 80 steps, plus a per-attempt cost cap on the Claude runs. Models: Opus 5.5, Sonnet 5.5, gpt-5.4, Haiku 4.5 and gpt-5.2. Using one common harness keeps score gaps about the models rather than the scaffolds. It works for both labs, unlike the native agent harnesses, which serve one lab each.</p>
+
+<h2>What explains the results</h2>
+<ul>
+<li><b>The fixable problems have checklists; the silent ones do not.</b> A rollover or CT-ratio change is documented, so following the documents fixes it. A dead sensor day is documented nowhere, and the README's wording makes it look normal.</li>
+<li><b>The mechanics are not the bottleneck.</b> Every model that ran the streamed tool handled paging, retries and the format change. Missing hours were noticed by all. The under-reading day still beat gpt-5.4 and half of the Sonnet attempts.</li>
+<li><b>It does not depend on our public seeds.</b> On four private held-out tasks, pass rates were similar to their public counterparts: gpt-5.4 {pvp.get("gpt-5.4", {}).get("private_pass", "?")} vs {pvp.get("gpt-5.4", {}).get("public_pass", "?")}, Sonnet {pvp.get("Sonnet 5.5", {}).get("private_pass", "?")} vs {pvp.get("Sonnet 5.5", {}).get("public_pass", "?")}, Opus {pvp.get("Opus 5.5", {}).get("private_pass", "?")} vs {pvp.get("Opus 5.5", {}).get("public_pass", "?")} (fractions of attempts passed).</li>
+<li><b>How the question is asked matters.</b> On version 1 of the stacked tasks, Opus and Sonnet passed all 8 (5 of 5 with a hidden fault) and gpt-5.4 passed 0 of 5 fault tasks. We think asking for a total that ends just before the fault, next to the full month, points at the fault. A version with the safe window far from the fault is built but not yet run.</li>
+</ul>
+
+<h2>Caveats</h2>
+<ul>
+<li>The data is synthetic and the setting is commercial metering. It has not been reviewed by an energy-industry expert, and the load shape is simple.</li>
+<li>Samples are small, mostly 1 to 3 attempts per task and model. Intervals overlap for Opus and Sonnet, so we do not rank them. Haiku 4.5 and gpt-5.2 ran each task once.</li>
+<li>Accuracy on the chart is over 17 common tasks, 10 of which require declining, so it is deliberately hard. Other task mixes give different numbers.</li>
+<li>One harness only. We did not compare native agent harnesses.</li>
+<li>Decline grading is binary. Reporting a number with a clear flag is also defensible on some tasks.</li>
+<li>No human baseline was measured.</li>
+</ul>
+
+<h2>Versioning and reproducibility</h2>
+<p>Dataset <code>silent-errors/final@v7-final</code>, digest <code>69a5cc6a918d</code>, 49 tasks. Earlier versions are kept and results cite the version used. The generator, specs, reference-solution check and a reproducibility check (a rebuild must be byte-identical) are in the repository, along with the curated result tables and charts.</p>
+</div></div>"""
 
 
 def main():
@@ -72,7 +170,7 @@ def main():
         rows_html += (f"<tr><td class=rk>{i}</td><td><span class='dot {d['lab'].lower()}'></span>{d['name']}</td>"
                       f"<td class=num><b>{d['acc'] * 100:.2f}%</b> <span class=pm>&plusmn;{d['se'] * 100:.2f}</span></td>"
                       f"<td class=num>${d['cost']:.3f}</td><td class=num>{d['calls']:.1f}</td><td class=num>{t}</td><td class=num>{d['n']}</td></tr>")
-    html = TEMPLATE.replace("__DATA__", json.dumps(data)).replace("__ROWS__", rows_html).replace("__NTASKS__", str(len(COMMON)))
+    html = TEMPLATE.replace("__ARTICLE__", build_article(data)).replace("__DATA__", json.dumps(data)).replace("__ROWS__", rows_html).replace("__NTASKS__", str(len(COMMON)))
     (OUT / "index.html").write_text(html)
     print("wrote", OUT / "index.html")
     for d in data:
@@ -105,11 +203,21 @@ th.num,td.num{text-align:right} td{padding:12px 10px;border-bottom:1px solid #ee
 td.rk{width:48px;color:var(--mut);text-align:center} tr:first-child td{background:#e8eee6}
 .pm{color:var(--mut);font-size:12px} .dot{display:inline-block;width:13px;height:13px;border-radius:3px;margin-right:10px;vertical-align:-2px}
 .dot.anthropic{background:var(--ant)} .dot.openai{background:var(--oai)}
+.article .body{max-width:820px;margin:0 auto;padding:6px 24px 36px;font-size:16px;line-height:1.65}
+.article h2{font-size:21px;margin:34px 0 8px} .article h3{font-size:17px;margin:22px 0 6px}
+.article ul{padding-left:22px} .article li{margin:8px 0} .article code{font:13px ui-monospace,Menlo,monospace;background:#f0eee7;padding:1px 5px;border-radius:3px}
+.article pre{background:#f6f4ee;border:1px solid var(--line);padding:12px 14px;font:13px/1.5 ui-monospace,Menlo,monospace;white-space:pre-wrap;border-radius:4px}
+.article img.ex{max-width:100%;height:auto;border:1px solid var(--line);margin:6px 0 4px}
+table.t{font-size:14px;margin:10px 0 6px} table.t th{background:#dfe7de} table.t td{vertical-align:top;font-size:14px;padding:9px 10px}
+.slot{border:2px dashed #c9a227;background:#fffbe8;padding:14px 16px;margin:22px 0 6px;color:#5c4a00}
+.slot span{display:block;font-size:13px;margin-top:4px;color:#7a6720}
+.hl{padding:14px 20px;background:#f3f7f2;border-bottom:1px solid var(--line);font-size:17px}
 .banner{background:#fff4cc;color:#5c4a00;padding:8px 20px;font-size:13px;border-bottom:1px solid var(--line)}
 </style></head><body>
 <div class="card">
   <div class="head"><div><h1>Energy Meter Reliability</h1><span class="sub">Can agents tell when a meter total can be trusted?</span></div>
   <div class="date mono">Draft &bull; synthetic data &bull; __NTASKS__ common tasks</div></div>
+  <div class="hl"><b>Frontier models fix the data, then fail to refuse.</b> The best model correctly declines only 45% of silent-fault tasks.</div>
   <div class="banner">Draft, local only. Small samples (1 to 3 attempts per task and model); treat differences as signals, not rankings.</div>
   <div class="bar mono"><span>&#8597; Accuracy</span><span>&#8596; Cost per attempt</span><span class="sp"></span>
     <button class="tog" id="tf" aria-pressed="true">&#9673; Frontier</button><button class="tog" id="tl" aria-pressed="false">&#9678; Log scale</button>
@@ -120,6 +228,7 @@ td.rk{width:48px;color:var(--mut);text-align:center} tr:first-child td{backgroun
 </div>
 <div class="card"><div class="head"><div><h1>Leaderboard</h1><span class="sub">Energy meter reliability, common tasks</span></div></div>
 <table><tr><th></th><th>Model</th><th class="num">Accuracy</th><th class="num">Cost / attempt</th><th class="num">Model calls</th><th class="num">Time / attempt</th><th class="num">Attempts</th></tr>__ROWS__</table></div>
+__ARTICLE__
 <script>
 const DATA = __DATA__;
 const COL = {Anthropic:"#d97757", OpenAI:"#161616"}, SVGNS="http://www.w3.org/2000/svg";
