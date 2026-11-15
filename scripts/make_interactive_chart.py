@@ -107,7 +107,13 @@ function render(){
   const lc=lab("LOWEST COST",fx(cmin)-8,H-M.b-12,"start","#8b949e",10);lc.setAttribute("transform",`rotate(-90 ${fx(cmin)-8} ${H-M.b-12})`);
   if(state.frontier&&fr.length>1){
     el("polyline",{points:fr.map(d=>fx(d.cost)+","+fy(d.acc)).join(" "),fill:"none",stroke:"#58a6ff","stroke-width":2,"stroke-linejoin":"round",opacity:.9},svg)}
-  for(const d of DATA){const x=fx(d.cost);el("line",{x1:x,x2:x,y1:fy(d.acc-d.se),y2:fy(d.acc+d.se),stroke:COL[d.lab],opacity:.35,"stroke-width":2,"stroke-linecap":"round"},svg)}
+  for(const d of DATA){
+    const x=fx(d.cost), ya=fy(d.acc+d.se), yb=fy(d.acc-d.se), cap=9;
+    const st={stroke:COL[d.lab],opacity:.55,"stroke-width":2,"stroke-linecap":"round"};
+    el("line",{x1:x,x2:x,y1:ya,y2:yb,...st},svg);          // range bar
+    el("line",{x1:x-cap,x2:x+cap,y1:ya,y2:ya,...st},svg);  // upper cap
+    el("line",{x1:x-cap,x2:x+cap,y1:yb,y2:yb,...st},svg);  // lower cap
+  }
   for(const d of DATA){
     const x=fx(d.cost),y=fy(d.acc),isF=!state.frontier||fset.has(d.name);
     const g=el("g",{class:"pt",style:"cursor:pointer",tabindex:0},svg);
