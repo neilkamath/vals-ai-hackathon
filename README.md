@@ -2,7 +2,7 @@
 
 ## Overview/TLDR - HUMAN WRITTEN :)
 
-Agents are often trusted with analyzing operational data that nobody really cares to double check. Through some preliminiary investigations, I found a risk in silent data errors, where the schema and types may be accurate but the number itself detroys the context of the scenario. To illustrate this idea, I created multiple tasks based on commerical electric hourly metering datai j. Generally the tasks broke into:
+Agents are often trusted with analyzing operational data that nobody really cares to double check. Through some preliminiary investigations, I found a risk in silent data errors, where the schema and types may be accurate but the number itself detroys the context of the scenario. To illustrate this idea, I created multiple tasks based on commerical electric hourly metering data. Generally the tasks broke into:
 
 - Question: What was the November's total energy consumption in kWh?
 - Context: (1) documented problems OR (2) documented + undocumented problems OR (3) control - no problems
