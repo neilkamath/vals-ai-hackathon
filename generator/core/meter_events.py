@@ -105,5 +105,80 @@ class RegisterRollover:
         return f"if d < 0: d += {self.modulus}"
 
 
-REGISTRY = {"utc_timestamps": UtcTimestamps, "multiplier_change": MultiplierChange,
+@dataclass
+class StuckMeter:
+    """The meter keeps its register frozen between start and end (comms fault), then catches up.
+
+    Consumption in that period is not recorded hour by hour. If `end` is past the export, the catch-up
+    never appears in the data.
+    """
+    start: str
+    end: str
+    tz: str = "America/Los_Angeles"
+    clue: str = "none"
+    trap_id = "stuck_meter"
+    keywords = ["stuck", "frozen", "freeze", "flat", "not updating", "stale", "no change", "constant register",
+                "same reading", "identical reading", "not recorded", "gap", "catch-up", "catch up"]
+
+    def apply(self, tables, rng):
+        base = None
+        for r in tables["readings"]:
+            loc = local_str(r["utc"], self.tz)
+            if loc <= self.start:
+                base = r["register"]
+            elif loc < self.end and base is not None:
+                r["register"] = base
+
+    def clue_files(self, kind):
+        return {}
+
+    def flag_text(self):
+        return ("the meter register is frozen for many consecutive hours (identical readings), "
+                "so consumption in that period was not recorded")
+
+    def undo_code(self):
+        return "pass"
+
+
+@dataclass
+class MeterSwap:
+    """The meter is replaced at `at` (site local). The new meter has a new id and its register starts at 0.0.
+
+    The reading drop looks like a register rollover but is not one; the paperwork says what happened.
+    """
+    at: str
+    new_id: str = "M-1002"
+    tz: str = "America/Los_Angeles"
+    clue: str = "replacement_form"
+    trap_id = "meter_swap"
+    keywords = ["meter replace", "replaced", "new meter", "meter swap", "swap", "meter_id", "m-1002",
+                "different meter", "register reset", "reset to 0", "reset to zero", "not a rollover"]
+
+    def apply(self, tables, rng):
+        base = None
+        for r in tables["readings"]:
+            if local_str(r["utc"], self.tz) <= self.at:
+                base = r["register"]
+            elif base is not None:
+                r["meter_id"] = self.new_id
+                r["register"] = round(r["register"] - base, 1)
+
+    def clue_files(self, kind):
+        return {"docs/meter_replacement_form.txt": (
+            "Meter replacement form\n\n"
+            f"Date and time: {self.at[:10]} {self.at[11:16]} (site local time)\n"
+            "Reason: end of life, scheduled replacement\n"
+            f"Old meter: M-1001. Its last hourly reading is its final reading.\n"
+            f"New meter: {self.new_id}, installed at the time above with its register at 0.0 kWh.\n"
+            "CT ratio unchanged.\n")}
+
+    def flag_text(self):
+        return (f"the meter was replaced on {self.at[:10]} (new meter {self.new_id}, register restarts at 0.0); "
+                "the drop in the register is not a rollover")
+
+    def undo_code(self):
+        return "if r['meter_id'] != last_id:\n        prev = 0.0  # new meter starts at 0.0\n    last_id = r['meter_id']"
+
+
+REGISTRY = {"stuck_meter": StuckMeter, "meter_swap": MeterSwap, "utc_timestamps": UtcTimestamps, "multiplier_change": MultiplierChange,
             "register_rollover": RegisterRollover}

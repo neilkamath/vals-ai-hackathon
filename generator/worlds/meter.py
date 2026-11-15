@@ -103,16 +103,19 @@ class MeterWorld(World):
             cut = to_utc(next(e for e in events if e.trap_id == "multiplier_change").cutover, TZ)
             assert any(r["ts"] > cut for r in win), "multiplier cutover is outside the window"
 
-    def compute(self, tables, events, roll=True, mult=True, bounds=None):
+    def compute(self, tables, events, roll=True, mult=True, bounds=None, swap=True):
         """Reference computation in Python, with individual fixes switchable for ablation checks."""
         lo, hi = bounds or self._utc_bounds()
         m = next((e for e in events if e.trap_id == "multiplier_change"), None)
         cut = to_utc(m.cutover, TZ) if (m and mult) else None
-        total, prev = 0.0, None
+        total, prev, last_id = 0.0, None, None
         for r in tables["readings"]:
             if prev is None:
-                prev = r["register"]
+                prev, last_id = r["register"], r["meter_id"]
                 continue
+            if swap and r["meter_id"] != last_id:
+                prev = 0.0  # a replaced meter starts at 0.0
+            last_id = r["meter_id"]
             d = r["register"] - prev
             prev = r["register"]
             if roll and d < 0:
@@ -125,15 +128,45 @@ class MeterWorld(World):
 
     def ablations(self, tables, events):
         ws, we = self.params["window_start"], self.params["window_end"]
-        return {
+        out = {
             "no_rollover_fix": self.compute(tables, events, roll=False),
             "no_multiplier_fix": self.compute(tables, events, mult=False),
             "bounds_read_as_utc": self.compute(tables, events, bounds=(ws, we)),
             "fixed_-8h_offset": self.compute(tables, events, bounds=tuple(
                 (datetime.strptime(x, FMT) + timedelta(hours=8)).strftime(FMT) for x in (ws, we))),
         }
+        if any(e.trap_id == "meter_swap" for e in events):
+            out["swap_read_as_rollover"] = self.compute(tables, events, swap=False)
+        return out
+
+    def status_check(self, tables, events, truth, naive, tol):
+        """Unanswerable tasks: the question window must contain a long frozen register, and the recorded total must be wrong."""
+        lo, hi = self._utc_bounds()
+        win = [r for r in tables["readings"] if lo < r["ts"] <= hi]
+        run = best = 1
+        for a, b in zip(win, win[1:]):
+            run = run + 1 if a["register"] == b["register"] else 1
+            best = max(best, run)
+        assert best >= 12, "no frozen register inside the question window"
+        recorded = self.compute(tables, events)
+        assert abs(recorded - truth) > tol, f"recorded total {recorded} is close to the true {truth}"
+        return f"frozen_run={best}h recorded_total={recorded} true_total={truth}"
 
     def solve_code(self, events):
+        if self.params.get("expected_status"):
+            lo, hi = self._utc_bounds()
+            return (
+                "#!/bin/bash\npython3 - <<'PY'\nimport csv, json\n"
+                "rows = list(csv.DictReader(open('/app/readings.csv')))\n"
+                f"win = [r for r in rows if '{lo}' < r['ts'] <= '{hi}']\n"
+                "run = best = 1\nfor a, b in zip(win, win[1:]):\n"
+                "    run = run + 1 if a['register_kwh'] == b['register_kwh'] else 1\n    best = max(best, run)\n"
+                "assert best >= 12, 'no frozen register'\n"
+                "json.dump({'status': 'cannot_determine', 'reason': f'the meter register is frozen for {best} consecutive hours "
+                "inside the requested period, so consumption in that period was not recorded', "
+                f"'flags': {[e.flag_text() for e in events if e.trap_id == 'stuck_meter']!r}}}, "
+                "open('/app/answer.json', 'w'))\nPY\n")
+        swap = next((e for e in events if e.trap_id == "meter_swap"), None)
         mult = next((e for e in events if e.trap_id == "multiplier_change"), None)
         roll = next((e for e in events if e.trap_id == "register_rollover"), None)
         c = self.params
@@ -145,6 +178,11 @@ class MeterWorld(World):
             "    reg = float(r['register_kwh'])\n    if prev is None:\n        prev = reg\n        continue\n",
             "    d = reg - prev\n    prev = reg\n",
         ]
+        if swap:
+            lines[2] = "total, prev, last_id = 0.0, None, rows[0]['meter_id']\nfor r in rows:\n"
+            lines[4] = "    if prev is None:\n        prev = reg\n        continue\n    " + swap.undo_code() + "\n"
+            lines[4] = ("    if prev is None:\n        prev = reg\n        continue\n"
+                        "    if r['meter_id'] != last_id:\n        prev = 0.0\n    last_id = r['meter_id']\n")
         if roll:
             lines.append(f"    {roll.undo_code()}\n")
         if mult:

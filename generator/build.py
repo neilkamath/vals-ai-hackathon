@@ -44,20 +44,29 @@ def build_one(spec_path, out_root):
     if "assignments" in tables and not any(e.trap_id == "reassignment" for e in events):
         uids = [a["user_id"] for a in tables["assignments"]]
         assert len(set(uids)) == len(uids), f"{spec['id']}: duplicate assignment rows without a reassignment event"
-    if hasattr(world, "ablations") and spec.get("expected_traps") != []:
+    scored = spec.get("scored_traps")  # restrict which trap ids are scored via flags
+    if hasattr(world, "ablations") and spec.get("expected_traps") != [] and not spec.get("expected_status"):
         full = world.compute(tables, events)
         assert abs(full - truth_pre) <= max(spec.get("tolerance_rel", 0) * abs(truth_pre), spec.get("tolerance_abs", 0)), \
             f"{spec['id']}: reference computation {full} disagrees with truth {truth_pre}"
         tol_pre = max(spec.get("tolerance_rel", 0) * abs(truth_pre), spec.get("tolerance_abs", 0))
         for name, val in world.ablations(tables, events).items():
+            if spec.get("ablate") is not None and name not in spec["ablate"]:
+                continue
             assert abs(val - truth_pre) > tol_pre, f"{spec['id']}: skipping '{name}' still passes ({val} vs {truth_pre})"
-    if hasattr(world, "validate"):
+    if hasattr(world, "validate") and spec.get("validate", True) and not spec.get("expected_status"):
         world.validate(tables, events, clean=spec.get("expected_traps") == [])
     truth, naive = world.truth(), world.naive_answer(tables)
     tol_rel, tol_abs = spec.get("tolerance_rel", 0), spec.get("tolerance_abs", 0)
     tol = max(tol_rel * abs(truth), tol_abs)
     clean = spec.get("expected_traps") == []  # trap-free question (paired clean task)
     status = spec.get("expected_status")
+    if status and hasattr(world, "status_check"):
+        msg = world.status_check(tables, events, truth, naive, tol)
+        traps = [{"id": e.trap_id, "keywords": e.keywords} for e in events if not scored or e.trap_id in scored]
+        task_writer.write(spec, files, {"expected_status": status, "traps": traps}, world.solve_code(events), out_root)
+        print(f"built {spec['id']}: expected_status={status} {msg}")
+        return
     if status:
         def chi(rows):
             n = {"control": 0, "treatment": 0}
@@ -83,7 +92,7 @@ def build_one(spec_path, out_root):
     else:
         assert abs(naive - truth) > tol, f"{spec['id']}: naive answer passes, trap is not real"
     expected = {"answer": truth, "tolerance_rel": tol_rel, "tolerance_abs": tol_abs,
-                "traps": [] if clean else [{"id": e.trap_id, "keywords": e.keywords} for e in events]}
+                "traps": [] if clean else [{"id": e.trap_id, "keywords": e.keywords} for e in events if not scored or e.trap_id in scored]}
     msg = f"truth={truth} naive={naive}"
     if hasattr(world, "overcorrect_answer"):
         oc = world.overcorrect_answer(tables)

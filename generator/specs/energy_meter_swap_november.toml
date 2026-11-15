@@ -1,0 +1,40 @@
+id = "energy-meter-swap-november"
+seed = 12
+description = "The meter is replaced mid-month; the register drop looks like a rollover but is not. Also a real rollover, a CT-ratio change and UTC timestamps."
+difficulty = "very-hard"
+question = """What was the total electricity consumption of the site in November 2026, in kWh?
+
+Use the site's local time for the month boundaries, and use all of the data in `/app`."""
+world = "meter"
+tolerance_rel = 0.0004
+clue = "mixed"
+window_start = "2026-11-01T00:00:00"
+window_end = "2026-12-01T00:00:00"
+
+[world_params]
+start_local = "2026-10-01T00:00:00"
+end_local = "2026-12-02T00:00:00"
+start_register = 970000.0
+closure_start = "2026-11-26"
+closure_end = "2026-11-29"
+
+[[change_events]]
+type = "utc_timestamps"
+clue = "none"
+
+[[change_events]]
+type = "multiplier_change"
+cutover = "2026-11-13T10:00:00"
+factor = 10
+clue = "maintenance_log"
+
+[[change_events]]
+type = "register_rollover"
+modulus = 1000000.0
+clue = "datasheet"
+
+[[change_events]]
+type = "meter_swap"
+at = "2026-11-20T14:00:00"
+new_id = "M-1002"
+clue = "replacement_form"
