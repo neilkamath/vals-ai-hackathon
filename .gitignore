@@ -22,3 +22,6 @@ __pycache__/
 results/raw/
 results/attempts.jsonl
 results/manifest.jsonl
+
+# Reference material, not part of the submission
+vals-hacks-bundle/
