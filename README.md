@@ -100,7 +100,15 @@ It applied every documented fix, saw the near-zero holiday, explained it away, a
 | gpt-5.2 | 15.4% (±10.4) | 20% | 0% | 50% | $0.064 | 13 |
 | Haiku 4.5 | 7.7% (±7.7) | 20% | 0% | 0% | $0.120 | 13 |
 
-Accuracy is the mean pass rate over the 13 tasks, with 1 to 3 attempts per task and model.
+Accuracy is the mean pass rate over the 13 tasks, with 1 to 3 attempts per task and model:
+
+```
+accuracy = (1 / 13) * sum over the 13 tasks of [ passes on that task / attempts on that task ]
+```
+
+A pass means the correct number within tolerance on an answer task, or `cannot_determine` on a decline task.
+Each task counts equally, so accuracy is not the average of the three group columns: the 6 decline tasks weigh more than the 5 fixable tasks and the 2 controls simply because there are more of them.
+The ± value is the standard error of the 13 per-task pass rates.
 Opus and Sonnet overlap within noise, so we do not rank them against each other.
 
 Findings in brief:
