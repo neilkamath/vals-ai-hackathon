@@ -100,6 +100,8 @@ def main():
         base = ROOT / "tasks" / r["task"]
         if not base.exists():
             base = ROOT / "private_tasks" / r["task"]  # held-out tasks are kept out of the repo
+        if not (base / "tests" / "expected.json").exists():
+            continue  # task no longer built (moved to generator/specs/dev); keep the labels recorded earlier
         exp = json.load(open(base / "tests" / "expected.json"))
         r["expects_status"] = bool(exp.get("expected_status"))
         r["stacked"] = "parts" in exp

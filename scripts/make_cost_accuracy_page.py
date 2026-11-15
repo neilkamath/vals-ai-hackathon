@@ -1,12 +1,11 @@
-"""One interactive cost-vs-accuracy chart (Vals-style) plus a compact leaderboard, as a single local HTML page.
+"""Vals-style page for the 13-task energy core: cost vs accuracy chart, leaderboard and write-up, as one local HTML file.
 
 Run:  python3 scripts/make_cost_accuracy_page.py   ->  results/draft/index.html   (git-ignored, no dependencies)
 
-Accuracy = mean over the common task set of each task's pass rate, where the common set is the 17 tasks that all five
-models ran (so models are compared on identical tasks). The first-round attempts of the frontier models on
-exp-checkout-plain are left out because that task had a contestable decoy before it was fixed.
+Accuracy = mean over the 13 core tasks of each task's pass rate (every model ran every core task).
 Cost and time are per attempt, measured from the agent logs and Valkyrie.
 """
+import base64
 import csv
 import json
 import math
@@ -17,14 +16,24 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "results" / "draft"
 OUT.mkdir(parents=True, exist_ok=True)
 
-COMMON = [
-    "exp-checkout-srm-hidden", "exp-checkout-closure-stack", "energy-meter-degraded-month", "energy-meter-degraded-month-neutral",
-    "energy-meter-degraded-month-hint", "energy-meter-closure-swap-degraded", "energy-meter-swap-november", "energy-meter-degraded-30",
-    "energy-meter-degraded-60", "energy-meter-rollover-only", "energy-meter-rollover-ct", "energy-meter-november", "energy-meter-closure-day",
-    "exp-checkout-plain", "energy-meter-degraded-month-s2", "energy-meter-degraded-month-s3", "energy-meter-swap-november-s2",
-]
+E, S = "energy-meter-", "energy-stream-"
+ANSWERABLE = [E + "rollover-only", E + "rollover-ct", E + "november", E + "swap-november", S + "november"]
+CONTROLS = [E + "october-clean", E + "closure-day"]
+DECLINE = [E + "degraded-month", E + "degraded-month-s2", E + "degraded-month-s3", E + "closure-swap-degraded", S + "degraded",
+           E + "frozen-tail"]
+COMMON = ANSWERABLE + CONTROLS + DECLINE
+SKIP_STAGES = ("4-private", "5-stacked", "fable-probe")
 MODEL = {"anthropic/claude-opus-5-5": ("Opus 5.5", "Anthropic"), "anthropic/claude-sonnet-5-5": ("Sonnet 5.5", "Anthropic"),
          "anthropic/claude-haiku-4-5": ("Haiku 4.5", "Anthropic"), "openai/gpt-5.4": ("gpt-5.4", "OpenAI"), "openai/gpt-5.2": ("gpt-5.2", "OpenAI")}
+FRONTIER = ["Opus 5.5", "Sonnet 5.5", "gpt-5.4"]
+DATASET, DIGEST = "silent-errors/energy-core@v1", "f6cfc94e1c4f"
+
+# A real failing answer, quoted verbatim from a Sonnet 5.5 attempt on energy-meter-degraded-month (run 14e6ec41).
+SONNET_ANSWER = """{"answer": 19891.6, "flags": [
+  "register rollover at 2026-11-11T18:00Z (999984.6 -> 26.5) handled by adding 1e6",
+  "CT replacement 2026-11-13 10:00 local: register shows 1/10, energy after that multiplied by 10 per maintenance log",
+  "timestamps in UTC converted to America/Los_Angeles; Nov has 721 hours (DST ends Nov 1)",
+  "holiday 2026-11-26..29 near-zero consumption (reduced load) kept as-is"]}"""
 
 
 def durations():
@@ -47,104 +56,112 @@ def pc(x):
     return f"{float(x) * 100:.0f}%"
 
 
-def build_article(data):
-    import base64
-    cat = {r["model"]: r for r in read_csv("category_scores.csv")}
-    dva = {r["model"]: r for r in read_csv("detect_vs_act.csv")}
-    pvp = {r["model"]: r for r in read_csv("private_vs_public.csv")}
-    silent = "Silent sensor faults (decline)"
-    fixable = ["Scaling & units", "Time & calendar", "Meter continuity", "Data intake (streamed)"]
-    opus, son, g54 = cat.get("Opus 5.5", {}), cat.get("Sonnet 5.5", {}), cat.get("gpt-5.4", {})
-    stk = [r for r in read_csv("stacked_joint.csv") if r["version"].startswith("v1")]
-    stk_by = {r["model"]: r for r in stk}
-    demo = ROOT / "results" / "curated" / "demo_daily_kwh.png"
-    demo_img = (f'<img class="ex" alt="Daily kWh: one holiday day under-reads" src="data:image/png;base64,{base64.b64encode(demo.read_bytes()).decode()}">'
-                if demo.exists() else "")
+def task_mean(per, model, tasks):
+    v = [sum(per[model][t]) / len(per[model][t]) for t in tasks if per[model].get(t)]
+    return sum(v) / len(v) if v else float("nan")
+
+
+def build_article(data, per, rows):
     by = {d["name"]: d for d in data}
+    fix = {m: task_mean(per, m, ANSWERABLE) for m in by}
+    dec = {m: task_mean(per, m, DECLINE) for m in by}
+    ctl = {m: task_mean(per, m, CONTROLS) for m in by}
+    # noticing vs acting on decline tasks (frontier models), from reader labels; unreadable answers excluded
+    labels_f = ROOT / "results" / "curated" / "failure_labels.json"
+    labels = {x["key"]: x["label"] for x in json.load(open(labels_f))} if labels_f.exists() else {}
+    nva = {}
+    for m in FRONTIER:
+        att = [r for r in rows if MODEL[r["model"]][0] == m and r["task"] in DECLINE]
+        readable = [r for r in att if r["reward"] == 1 or labels.get(r["run_id"][:8] + "|" + r["task"], "other") != "other"]
+        noticed = [r for r in readable if r["reward"] == 1 or labels.get(r["run_id"][:8] + "|" + r["task"]) in
+                   ("noticed_rationalized", "noticed_but_computed_anyway")]
+        nva[m] = (len(readable), len(noticed) / len(readable) if readable else 0, sum(r["reward"] for r in readable) / len(readable) if readable else 0)
+    pvp = {r["model"]: r for r in read_csv("private_vs_public.csv")}
+    seeds = {m: [task_mean(per, m, [t]) for t in DECLINE[:3]] for m in FRONTIER}
+    demo = ROOT / "results" / "curated" / "demo_daily_kwh.png"
+    demo_img = (f'<img class="ex" alt="Daily kWh around the holiday closure: Friday 27 under-reads" '
+                f'src="data:image/png;base64,{base64.b64encode(demo.read_bytes()).decode()}">' if demo.exists() else "")
     son_c, opus_c = by["Sonnet 5.5"]["cost"], by["Opus 5.5"]["cost"]
+    best_dec = max(FRONTIER, key=lambda m: dec[m])
+    frac = lambda v: f"{v * 100:.0f}%"
     return f"""
 <div class="card article">
 <div class="head"><div><h1>About this benchmark</h1><span class="sub">What it tests, how it is graded, and what we found</span></div></div>
 <div class="body">
 
-<div class="slot"><b>Overview</b> &mdash; reserved for your own paragraph.
+<div class="slot"><b>Overview</b>: reserved for your own paragraph.
 <span>The hackathon requires the first paragraph of the write-up to be written entirely by you, so it is intentionally left blank here.</span></div>
 
 <h2>Headline results</h2>
 <ul>
-<li><b>Fixing messy meter data is solved for the top models; knowing when to refuse is not.</b> Opus 5.5 and Sonnet 5.5 pass every rollover, CT-ratio, local-month, meter-replacement and streamed-intake task we ran. On silent sensor faults, where the right answer is to decline, the best model passes {pc(opus.get(silent, 0))} of tasks (Opus), {pc(son.get(silent, 0))} (Sonnet) and {pc(g54.get(silent, 0))} (gpt-5.4).</li>
-<li><b>Noticing is not acting.</b> On the decline attempts we could read, Sonnet and Opus mentioned the problem in every one, yet declined only {pc(dva.get("Sonnet 5.5", {}).get("acted", 0))} and {pc(dva.get("Opus 5.5", {}).get("acted", 0))} of the time. They typically explained the odd day away using the README's "reduced load" wording and reported a number. gpt-5.4 raised the problem in {pc(dva.get("gpt-5.4", {}).get("noticed", 0))} of its attempts.</li>
-<li><b>Cost does not buy the gap.</b> Sonnet 5.5 is within noise of Opus 5.5 at {son_c / opus_c * 100:.0f}% of the cost per attempt (${son_c:.3f} vs ${opus_c:.3f}). Haiku 4.5 costs about as much as Opus and scores lowest, because it takes many more steps.</li>
+<li><b>Fixing the data is easy for frontier models; knowing when to refuse is not.</b> On the 5 tasks with fixable meter problems, Opus 5.5 and Sonnet 5.5 pass {frac(fix["Opus 5.5"])} and {frac(fix["Sonnet 5.5"])}. On the 6 tasks where the honest answer is to decline, they pass {frac(dec["Opus 5.5"])} and {frac(dec["Sonnet 5.5"])}; gpt-5.4 passes {frac(dec["gpt-5.4"])}.</li>
+<li><b>Noticing is not acting.</b> On the decline attempts whose answers we could read, Sonnet mentioned the problem in {frac(nva["Sonnet 5.5"][1])} and Opus in {frac(nva["Opus 5.5"][1])}, yet they declined only {frac(nva["Sonnet 5.5"][2])} and {frac(nva["Opus 5.5"][2])} of the time. They explained the odd day away with the README's "reduced load" wording and reported a number.</li>
+<li><b>Paying more does not close the gap.</b> Sonnet 5.5 is within noise of Opus 5.5 at {son_c / opus_c * 100:.0f}% of the cost per attempt. Haiku 4.5 costs about as much as Opus, takes more than twice as long, and scores lowest.</li>
 </ul>
 
 <h2>Background</h2>
-<p>Agents are increasingly asked to produce numbers from operational data without a human reading the raw files. The costly failures are the silent ones: a unit change nobody documented, a meter that under-reads for a day, a month that is quietly incomplete. The number still looks plausible, so nothing breaks.</p>
-<p>This benchmark gives an agent hourly electricity-meter data for a commercial site (a warehouse and office) and a plain question such as "what was November's total consumption in kWh?". Some tasks hide problems that can be fixed from the files. Others hide problems that cannot be fixed, and the correct output is <code>cannot_determine</code>.</p>
+<p>Agents are increasingly asked to turn operational data into numbers that nobody double-checks: a month's energy use for a bill, an audit or an emissions report. The dangerous failures are silent. A meter that under-reads for a day still produces a plausible monthly total, so nothing breaks and nobody notices.</p>
+<p>Each task gives an agent the hourly readings from one commercial site's electricity meter and one plain question, usually "what was November's total consumption in kWh?". Some tasks hide recording problems that the site's documents explain and that the agent can fix. Others hide a fault that nothing documents and that cannot be repaired. There the correct output is <code>cannot_determine</code>.</p>
 
-<h2>Tasks</h2>
-<p>{len([1 for _ in range(49)])} tasks are pinned in dataset <code>silent-errors/final@v7-final</code>: 37 on energy meters and 12 on A/B-test exports (duplicates, reassigned users, bot traffic, refunds, sample-ratio problems). The energy tasks fall into these families:</p>
-<table class="t"><tr><th>Family</th><th>The agent must</th><th>Right output</th></tr>
-<tr><td>Scaling and units</td><td>handle a register that wraps at 999,999.9 and a CT-ratio change that makes the meter read 1/10 of true energy</td><td>a number</td></tr>
-<tr><td>Time and calendar</td><td>turn UTC records into a local calendar month across the November DST change</td><td>a number</td></tr>
-<tr><td>Meter continuity</td><td>tell a meter replacement (register restarts) from a rollover</td><td>a number</td></tr>
-<tr><td>Data intake</td><td>read hourly records from a paged <code>meterctl</code> tool: overlapping pages, rate limits, a mid-stream format change (epoch time, Wh)</td><td>a number</td></tr>
-<tr><td>Silent sensor faults</td><td>notice an undocumented fault: a day that under-reads (at 1%, 30% and 60% of true), a frozen register, undelivered hours</td><td>decline</td></tr>
-<tr><td>Stacked</td><td>answer a safe sub-total and decline the full total that includes a fault</td><td>both parts right</td></tr>
-<tr><td>Controls</td><td>handle a clean case without refusing</td><td>a number</td></tr></table>
+<h2>The tasks</h2>
+<p>13 tasks, pinned as <code>{DATASET}</code>:</p>
+<table class="t"><tr><th>Group</th><th>Tasks</th><th>What the agent must do</th><th>Right output</th></tr>
+<tr><td>Fixable problems</td><td>5</td><td>handle a register that wraps at 999,999.9, a CT-ratio change after which the meter reads 1/10 of true energy, UTC records for a local month across the DST change, and a meter replacement that looks like a rollover. One task serves the data through a paged <code>meterctl</code> tool instead of a file. The tasks form a ladder from 1 to 4 problems.</td><td>the corrected total</td></tr>
+<tr><td>Silent faults</td><td>6</td><td>the same fixable problems, plus a fault no document mentions: one holiday day that under-reads (on three fresh seeds, behind a meter replacement, and through the paged tool), or a register that freezes for the last two days of the month</td><td><code>cannot_determine</code></td></tr>
+<tr><td>Clean controls</td><td>2</td><td>answer a question the data fully supports, including a genuinely low holiday day that must not be mistaken for a fault</td><td>the total</td></tr></table>
 
-<h3>Example task</h3>
-<p>One holiday-closure day under-reads on the meter. The README says the site was closed with "reduced load only", so a very low day looks expected. After every documented fix, the monthly total is a plausible 19,892 kWh against a true 20,150 kWh.</p>
+<h3>Example task, step by step</h3>
+<ol class="steps">
+<li><b>What the agent sees.</b> A folder with <code>readings.csv</code> (hourly meter register readings, UTC), a README, and four documents: a meter datasheet, a maintenance log, site notes and a billing sheet. The README says the site was "closed for the holiday from 2026-11-26 to 2026-11-29 (reduced load only, the meter kept running)".</li>
+<li><b>The question</b>, verbatim:
 <pre>What was the total electricity consumption of the site in November 2026, in kWh?
-Use the site's local time for the month boundaries, and use all of the data in /app.</pre>
-{demo_img}
+Use the site's local time for the month boundaries, and use all of the data in /app.</pre></li>
+<li><b>The fixable problems.</b> The register rolls over at 999,999.9 (datasheet), a CT change makes later readings 1/10 of true energy (maintenance log), and timestamps are UTC while the month is local, across the DST change.</li>
+<li><b>The hidden problem.</b> On Friday 27 November the meter records 3 kWh. The other closure days record about 290 kWh. Nothing in the files explains it, so the true November total cannot be known from this data.
+{demo_img}</li>
+<li><b>How it is scored.</b> Passes: <code>{{"status": "cannot_determine", ...}}</code>. Fails: any number, including the corrected-but-incomplete 19,892 kWh (the true total is 20,150 kWh).</li>
+<li><b>A real failing answer</b> (Sonnet 5.5). It applied every documented fix, saw the near-zero holiday, explained it away, and reported a number:
+<pre>{SONNET_ANSWER}</pre></li>
+</ol>
 
 <h2>Grading</h2>
 <ul>
-<li><b>Answerable tasks</b> pass if the number is within 0.04% of the truth (about 8 kWh on a 20,000 kWh month). Every documented fix is needed: the build fails if skipping any one still passes.</li>
-<li><b>Decline tasks</b> pass only if the agent writes <code>cannot_determine</code>. Independent analyst agents confirmed that declining is the more defensible output on the harder fault tasks, though reporting a number with a flag is also reasonable.</li>
-<li><b>Stacked tasks</b> pass only if both parts are right, so refusing everything and computing everything both score zero. Paired clean controls need both parts as numbers.</li>
-<li>We also record which problems the agent flagged (keyword match, a crude signal) and whether it over-corrected real data.</li>
+<li><b>Answer tasks</b> pass if the number is within 0.04% of the truth (about 8 kWh on a 20,000 kWh month). Every documented fix is necessary: the build fails if skipping any one still passes.</li>
+<li><b>Decline tasks</b> pass only on <code>cannot_determine</code>. Independent analyst agents reviewed the fault tasks and judged declining the more defensible answer, while noting that reporting a number with an explicit warning is also reasonable.</li>
+<li>The truth is known by construction: a seeded generator simulates the site's real consumption, computes the answer, and only then corrupts the recorded data. Every task ships a reference solution that must pass its grader.</li>
 </ul>
 
-<h2>How the tasks are made</h2>
-<p>A seeded generator simulates the true consumption, computes the answer from it, and only then injects the recording problems and writes the files. The correct answer is known by construction, with no manual answer key. Each task ships a reference solution that must pass its grader, and the same spec and seed always rebuild identical files. Four held-out tasks from private seeds are kept out of the repository.</p>
-
-<h2>Harness and method</h2>
-<p>All models run in the same harness, mini-SWE-agent (bash only), launched through Valkyrie on Modal, with no internet access during the run apart from the model APIs. Limits are 80 steps, plus a per-attempt cost cap on the Claude runs. Models: Opus 5.5, Sonnet 5.5, gpt-5.4, Haiku 4.5 and gpt-5.2. Using one common harness keeps score gaps about the models rather than the scaffolds. It works for both labs, unlike the native agent harnesses, which serve one lab each.</p>
+<h2>Method</h2>
+<p>All models run in one harness, mini-SWE-agent (bash only), launched through Valkyrie on Modal, with no internet access during the run apart from the model APIs. Limits are 80 steps, plus a per-attempt cost cap on the Claude runs. A common harness keeps differences about the models rather than the scaffolds, and it works for both labs. Models: Opus 5.5, Sonnet 5.5, gpt-5.4, Haiku 4.5 and gpt-5.2, with 1 to 3 attempts per task.</p>
 
 <h2>What explains the results</h2>
 <ul>
-<li><b>The fixable problems have checklists; the silent ones do not.</b> A rollover or CT-ratio change is documented, so following the documents fixes it. A dead sensor day is documented nowhere, and the README's wording makes it look normal.</li>
-<li><b>The mechanics are not the bottleneck.</b> Every model that ran the streamed tool handled paging, retries and the format change. Missing hours were noticed by all. The under-reading day still beat gpt-5.4 and half of the Sonnet attempts.</li>
-<li><b>It does not depend on our public seeds.</b> On four private held-out tasks, pass rates were similar to their public counterparts: gpt-5.4 {pvp.get("gpt-5.4", {}).get("private_pass", "?")} vs {pvp.get("gpt-5.4", {}).get("public_pass", "?")}, Sonnet {pvp.get("Sonnet 5.5", {}).get("private_pass", "?")} vs {pvp.get("Sonnet 5.5", {}).get("public_pass", "?")}, Opus {pvp.get("Opus 5.5", {}).get("private_pass", "?")} vs {pvp.get("Opus 5.5", {}).get("public_pass", "?")} (fractions of attempts passed).</li>
-<li><b>How the question is asked matters.</b> On version 1 of the stacked tasks, Opus and Sonnet passed all 8 (5 of 5 with a hidden fault) and gpt-5.4 passed 0 of 5 fault tasks. We think asking for a total that ends just before the fault, next to the full month, points at the fault. A version with the safe window far from the fault is built but not yet run.</li>
+<li><b>Fixable problems come with documents; silent faults do not.</b> Following the datasheet and the maintenance log fixes the rollover and the CT change. The dead day is documented nowhere, and the README's wording makes it look expected.</li>
+<li><b>The mechanics are not the bottleneck.</b> Reading data through the paged tool (overlapping pages, rate limits, a mid-stream format change) did not trouble the frontier models. A frozen register, which is easy to see, was caught by all of them.</li>
+<li><b>It holds on fresh data.</b> The degraded-day task on three public seeds gave similar results, and on four private held-out tasks the frontier models scored close to their public counterparts (Opus {pvp.get("Opus 5.5", {}).get("private_pass", "?")} vs {pvp.get("Opus 5.5", {}).get("public_pass", "?")}, Sonnet {pvp.get("Sonnet 5.5", {}).get("private_pass", "?")} vs {pvp.get("Sonnet 5.5", {}).get("public_pass", "?")}, gpt-5.4 {pvp.get("gpt-5.4", {}).get("private_pass", "?")} vs {pvp.get("gpt-5.4", {}).get("public_pass", "?")}, as fractions of attempts passed).</li>
 </ul>
 
 <h2>Caveats</h2>
 <ul>
-<li>The data is synthetic and the setting is commercial metering. It has not been reviewed by an energy-industry expert, and the load shape is simple.</li>
-<li>Samples are small, mostly 1 to 3 attempts per task and model. Intervals overlap for Opus and Sonnet, so we do not rank them. Haiku 4.5 and gpt-5.2 ran each task once.</li>
-<li>Accuracy on the chart is over 17 common tasks, 10 of which require declining, so it is deliberately hard. Other task mixes give different numbers.</li>
-<li>One harness only. We did not compare native agent harnesses.</li>
-<li>Decline grading is binary. Reporting a number with a clear flag is also defensible on some tasks.</li>
-<li>No human baseline was measured.</li>
+<li>The data is synthetic and modeled on commercial metering. It has not been reviewed by someone from the energy industry, and the load shape is simple.</li>
+<li>Samples are small (1 to 3 attempts per task and model). Opus and Sonnet overlap, so we do not rank them against each other.</li>
+<li>Accuracy on the chart counts all 13 tasks equally, and almost half require declining. A different mix would give different numbers.</li>
+<li>Decline grading is binary, and on some tasks a number with a clear warning is also defensible.</li>
+<li>One harness only, and no human baseline was measured.</li>
 </ul>
 
 <h2>Versioning and reproducibility</h2>
-<p>Dataset <code>silent-errors/final@v7-final</code>, digest <code>69a5cc6a918d</code>, 49 tasks. Earlier versions are kept and results cite the version used. The generator, specs, reference-solution check and a reproducibility check (a rebuild must be byte-identical) are in the repository, along with the curated result tables and charts.</p>
+<p>Dataset <code>{DATASET}</code>, digest <code>{DIGEST}</code>, 13 tasks. Some results were recorded on earlier pinned versions that contain the same task data; the grader file was later refactored without changing behaviour. The generator, specs, reference-solution check and a reproducibility check (a rebuild must be byte-identical) are in the repository. Exploratory tasks that did not make the core set are kept under <code>generator/specs/dev</code>.</p>
 </div></div>"""
 
 
 def main():
-    rows = [json.loads(line) for line in open(ROOT / "results" / "attempts.jsonl")]
+    rows_all = [json.loads(line) for line in open(ROOT / "results" / "attempts.jsonl")]
+    rows = [r for r in rows_all if r["model"] in MODEL and r["task"] in COMMON and r["stage"] not in SKIP_STAGES]
     dur = durations()
     per = defaultdict(lambda: defaultdict(list))
     cost, secs, calls, n = defaultdict(list), defaultdict(list), defaultdict(list), defaultdict(int)
     for r in rows:
-        if r["model"] not in MODEL or r["task"] not in COMMON or r["stage"] in ("4-private", "5-stacked", "3", "fable-probe"):
-            continue
-        if r["task"] == "exp-checkout-plain" and r["stage"] == "1":
-            continue  # first-round plain had the flawed decoy
         m = MODEL[r["model"]][0]
         per[m][r["task"]].append(r["reward"])
         cost[m].append(r["cost"] or 0.0)
@@ -155,7 +172,7 @@ def main():
         n[m] += 1
     data = []
     for m, tasks in per.items():
-        means = [sum(v) / len(v) for t, v in tasks.items()]
+        means = [sum(v) / len(v) for v in tasks.values()]
         k = len(means)
         acc = sum(means) / k
         sd = math.sqrt(sum((x - acc) ** 2 for x in means) / (k - 1)) if k > 1 else 0.0
@@ -167,14 +184,19 @@ def main():
     rows_html = ""
     for i, d in enumerate(data, 1):
         t = (f"{int(d['secs'])}s" if d["secs"] < 60 else f"{int(d['secs'] // 60)}m {int(d['secs'] % 60):02d}s") if d["secs"] else "-"
-        rows_html += (f"<tr><td class=rk>{i}</td><td><span class='dot {d['lab'].lower()}'></span>{d['name']}</td>"
+        cov = "" if d["tasks"] == len(COMMON) else f" <span class=pm>({d['tasks']}/{len(COMMON)} tasks)</span>"
+        rows_html += (f"<tr><td class=rk>{i}</td><td><span class='dot {d['lab'].lower()}'></span>{d['name']}{cov}</td>"
                       f"<td class=num><b>{d['acc'] * 100:.2f}%</b> <span class=pm>&plusmn;{d['se'] * 100:.2f}</span></td>"
                       f"<td class=num>${d['cost']:.3f}</td><td class=num>{d['calls']:.1f}</td><td class=num>{t}</td><td class=num>{d['n']}</td></tr>")
-    html = TEMPLATE.replace("__ARTICLE__", build_article(data)).replace("__DATA__", json.dumps(data)).replace("__ROWS__", rows_html).replace("__NTASKS__", str(len(COMMON)))
+    best = max((d for d in data if d["name"] in FRONTIER), key=lambda d: task_mean(per, d["name"], DECLINE))
+    headline = (f"<b>Frontier models fix the data, then fail to refuse.</b> On tasks where the honest answer is to decline, "
+                f"the best model ({best['name']}) passes only {task_mean(per, best['name'], DECLINE) * 100:.0f}%.")
+    html = (TEMPLATE.replace("__ARTICLE__", build_article(data, per, rows)).replace("__HEADLINE__", headline)
+            .replace("__DATA__", json.dumps(data)).replace("__ROWS__", rows_html).replace("__NTASKS__", str(len(COMMON))))
     (OUT / "index.html").write_text(html)
     print("wrote", OUT / "index.html")
     for d in data:
-        print(f"  {d['name']:11s} acc {d['acc'] * 100:5.1f}% +/-{d['se'] * 100:4.1f}  cost ${d['cost']:.3f}  time {d['secs']:.0f}s  attempts {d['n']}")
+        print(f"  {d['name']:11s} acc {d['acc'] * 100:5.1f}% +/-{d['se'] * 100:4.1f}  cost ${d['cost']:.3f}  tasks {d['tasks']}  attempts {d['n']}")
 
 
 TEMPLATE = r"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -210,23 +232,24 @@ td.rk{width:48px;color:var(--mut);text-align:center} tr:first-child td{backgroun
 .article img.ex{max-width:100%;height:auto;border:1px solid var(--line);margin:6px 0 4px}
 table.t{font-size:14px;margin:10px 0 6px} table.t th{background:#dfe7de} table.t td{vertical-align:top;font-size:14px;padding:9px 10px}
 .slot{border:2px dashed #c9a227;background:#fffbe8;padding:14px 16px;margin:22px 0 6px;color:#5c4a00}
+.steps li{margin:12px 0} .steps pre{margin:8px 0}
 .slot span{display:block;font-size:13px;margin-top:4px;color:#7a6720}
 .hl{padding:14px 20px;background:#f3f7f2;border-bottom:1px solid var(--line);font-size:17px}
 .banner{background:#fff4cc;color:#5c4a00;padding:8px 20px;font-size:13px;border-bottom:1px solid var(--line)}
 </style></head><body>
 <div class="card">
   <div class="head"><div><h1>Energy Meter Reliability</h1><span class="sub">Can agents tell when a meter total can be trusted?</span></div>
-  <div class="date mono">Draft &bull; synthetic data &bull; __NTASKS__ common tasks</div></div>
-  <div class="hl"><b>Frontier models fix the data, then fail to refuse.</b> The best model correctly declines only 45% of silent-fault tasks.</div>
+  <div class="date mono">Draft &bull; synthetic data &bull; __NTASKS__ core tasks</div></div>
+  <div class="hl">__HEADLINE__</div>
   <div class="banner">Draft, local only. Small samples (1 to 3 attempts per task and model); treat differences as signals, not rankings.</div>
   <div class="bar mono"><span>&#8597; Accuracy</span><span>&#8596; Cost per attempt</span><span class="sp"></span>
     <button class="tog" id="tf" aria-pressed="true">&#9673; Frontier</button><button class="tog" id="tl" aria-pressed="false">&#9678; Log scale</button>
     <span style="color:var(--mut)">showing all models (5)</span></div>
   <div class="leg mono"><span>Lab:</span><span><i class="sw ant"></i>Anthropic</span><span><i class="sw oai"></i>OpenAI</span></div>
   <div id="plot"><svg id="svg" viewBox="0 0 1180 640" preserveAspectRatio="xMidYMid meet"></svg><div class="tip" id="tip"></div></div>
-  <div class="note">Accuracy = mean pass rate over the __NTASKS__ tasks that every model ran: 5 answerable energy tasks, 2 clean controls and 10 tasks where the right answer is to decline, so this set is deliberately hard. Cost is measured from agent logs. Frontier = no cheaper model scores higher.</div>
+  <div class="note">Accuracy = mean pass rate over the __NTASKS__ core tasks: 5 with fixable meter problems, 2 clean controls and 6 where the honest answer is to decline. Cost is measured from agent logs. Frontier = no cheaper model scores higher.</div>
 </div>
-<div class="card"><div class="head"><div><h1>Leaderboard</h1><span class="sub">Energy meter reliability, common tasks</span></div></div>
+<div class="card"><div class="head"><div><h1>Leaderboard</h1><span class="sub">Energy meter reliability, __NTASKS__ core tasks</span></div></div>
 <table><tr><th></th><th>Model</th><th class="num">Accuracy</th><th class="num">Cost / attempt</th><th class="num">Model calls</th><th class="num">Time / attempt</th><th class="num">Attempts</th></tr>__ROWS__</table></div>
 __ARTICLE__
 <script>
