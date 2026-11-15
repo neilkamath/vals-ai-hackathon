@@ -16,6 +16,7 @@ import json
 from pathlib import Path
 
 import matplotlib
+import matplotlib.ticker  # noqa: F401
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
@@ -66,6 +67,16 @@ def load():
     df["cost"] = df["cost"].fillna(0.0)
     labels_path = OUT / "failure_labels.json"
     labels = {x["key"]: x["label"] for x in json.load(open(labels_path))} if labels_path.exists() else {}
+    dur = {}
+    for rid in df["run_id"].unique():
+        f = ROOT / "results" / "raw" / f"{rid}.json"
+        if f.exists():
+            try:
+                for task, ev in json.load(open(f))["evaluation_results"].items():
+                    dur[(rid, task)] = ev["task_breakdown"]["agent_run_duration"]
+            except Exception:
+                pass
+    df["duration_s"] = [dur.get((r, t), np.nan) for r, t in zip(df["run_id"], df["task"])]
     df["key"] = df["run_id"].str[:8] + "|" + df["task"]
     df["reader_label"] = df["key"].map(labels)
     return df
@@ -147,7 +158,8 @@ def main():
                    "categories_covered": head.loc[m, "categories_covered"],
                    "answerable_pass": ans.reward.mean() if len(ans) else np.nan, "decline_pass": dec.reward.mean() if len(dec) else np.nan,
                    "control_pass": ctl.reward.mean() if len(ctl) else np.nan, "avg_cost_per_attempt_usd": d.cost.mean(),
-                   "avg_model_calls": d.calls.dropna().mean(), "total_cost_usd": d.cost.sum()})
+                   "avg_model_calls": d.calls.dropna().mean(), "avg_duration_s": d.duration_s.mean(),
+                   "total_cost_usd": d.cost.sum()})
     lb = pd.DataFrame(lb).set_index("model")
     lb.round(3).to_csv(OUT / "leaderboard.csv")
 
@@ -214,20 +226,48 @@ def main():
     sns.set_theme(style="whitegrid", context="talk", rc={"axes.grid.axis": "y"})
     colors = dict(zip(ORDER, sns.color_palette("viridis", len(ORDER))))
 
-    # 1. Pareto: reliability vs cost
-    fig, ax = plt.subplots(figsize=(8, 5.5))
-    for m in ORDER:
-        if m in lb.index and not np.isnan(lb.loc[m, "energy_reliability_score"]):
-            x, y = lb.loc[m, "avg_cost_per_attempt_usd"], lb.loc[m, "energy_reliability_score"]
-            ax.errorbar(x, y, yerr=[[y - lb.loc[m, "ci_low"]], [lb.loc[m, "ci_high"] - y]], fmt="o", color=colors[m], capsize=4, ms=10)
-            ax.annotate(m, (x, y), textcoords="offset points", xytext=(8, 6), fontsize=12)
-    ax.set_xscale("log")
-    ax.set_xlabel("Cost per attempt (USD, log scale)")
-    ax.set_ylabel("Energy reliability score")
-    ax.set_ylim(0, 1)
-    ax.set_title("Reliability vs cost (95% bootstrap CI)")
-    fig.tight_layout()
-    fig.savefig(OUT / "fig1_reliability_vs_cost.png", dpi=160)
+    # 1. Pareto panels: reliability vs cost, vs latency, and the judge-reliability mode vs cost
+    LAB = {"Haiku 4.5": "Anthropic", "Sonnet 5.5": "Anthropic", "Opus 5.5": "Anthropic", "gpt-5.2": "OpenAI", "gpt-5.4": "OpenAI"}
+    LAB_COLOR = {"Anthropic": "#c4623a", "OpenAI": "#2f8f6f"}
+    MARK = {"Haiku 4.5": "o", "gpt-5.2": "o", "Sonnet 5.5": "s", "gpt-5.4": "s", "Opus 5.5": "D"}
+    panels = [("avg_cost_per_attempt_usd", "energy_reliability_score", "Cost per attempt (USD, log scale)", "Energy reliability score", True),
+              ("avg_duration_s", "energy_reliability_score", "Agent time per attempt (seconds, log scale)", "Energy reliability score", True),
+              ("avg_cost_per_attempt_usd", "judge_reliability", "Cost per attempt (USD, log scale)", "Judge-reliability mode (decline tasks)", True)]
+    fig, axes = plt.subplots(1, 3, figsize=(19, 5.6))
+    for ax, (xc, yc, xl, yl, logx) in zip(axes, panels):
+        pts = [(lb.loc[m, xc], lb.loc[m, yc], m) for m in ORDER if m in lb.index and not np.isnan(lb.loc[m, yc]) and not np.isnan(lb.loc[m, xc])]
+        front, best = [], -1
+        for x_, y_, m in sorted(pts):  # Pareto frontier: cheapest-first, keep only points that improve on everything cheaper
+            if y_ > best:
+                front.append((x_, y_))
+                best = y_
+        if len(front) > 1:
+            fx, fy = zip(*front)
+            ax.step(fx, fy, where="post", color="#888", lw=1.6, ls="--", zorder=1, label="Pareto frontier")
+        for x_, y_, m in pts:
+            n = lb.loc[m, "attempts"]
+            err = None
+            if yc == "energy_reliability_score":
+                err = [[y_ - lb.loc[m, "ci_low"]], [lb.loc[m, "ci_high"] - y_]]
+                ax.errorbar(x_, y_, yerr=err, fmt="none", ecolor=LAB_COLOR[LAB[m]], alpha=0.55, capsize=4, zorder=2)
+            ax.scatter(x_, y_, s=60 + 4 * n, marker=MARK[m], color=LAB_COLOR[LAB[m]], edgecolor="white", linewidth=1.2, zorder=3)
+            ax.annotate(m, (x_, y_), textcoords="offset points", xytext=(10, -16 if m in ("gpt-5.4",) else 7), fontsize=11)
+        ax.set_xscale("log")
+        ticks = [0.05, 0.07, 0.10, 0.14] if xc.startswith("avg_cost") else [30, 40, 60, 100]
+        ax.set_xticks(ticks)
+        ax.set_xticklabels([f"${t:.2f}" if xc.startswith("avg_cost") else f"{t}s" for t in ticks])
+        ax.xaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
+        ax.set_xlabel(xl, fontsize=12)
+        ax.set_ylabel(yl, fontsize=12)
+        ax.set_ylim(-0.02, 1.0)
+        ax.margins(x=0.18)
+    handles = [plt.Line2D([], [], marker="o", ls="", color=c, label=l) for l, c in LAB_COLOR.items()]
+    handles += [plt.Line2D([], [], color="#888", ls="--", label="Pareto frontier"),
+                plt.Line2D([], [], marker="o", ls="", color="#bbb", label="marker size = attempts")]
+    fig.legend(handles=handles, loc="lower center", ncol=4, frameon=False, fontsize=11)
+    fig.suptitle("Reliability, cost and time (bars: 95% bootstrap interval; right panel: hard mode only)", fontsize=15)
+    fig.tight_layout(rect=(0, 0.07, 1, 0.95))
+    fig.savefig(OUT / "fig1_reliability_vs_cost.png", dpi=150)
     plt.close(fig)
 
     # 2. Category heat map
