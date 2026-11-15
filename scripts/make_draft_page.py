@@ -1,6 +1,6 @@
 """Build a single self-contained HTML page (leaderboard + charts) from results/curated for local viewing.
 
-Run:  python3 scripts/make_draft_page.py     ->  results/draft/index.html  (git-ignored)
+Run:  python3 scripts/make_draft_page.py     ->  results/draft/all_charts.html  (git-ignored)
 """
 import base64
 import csv
@@ -106,5 +106,5 @@ Reliability score = mean of two equal-weight modes: fix-and-compute and judge-re
 <div class="wrap"><table><tr><th>Model</th><th>Private seeds (n)</th><th>Public analogs (n)</th></tr>{ptr}</table></div>
 <p class="note">The private tasks are not in the repository. Similar pass rates suggest results do not depend on the public seeds.</p>
 </main></body></html>"""
-(OUT / "index.html").write_text(page)
+(OUT / "all_charts.html").write_text(page)
 print("wrote", OUT / "index.html", f"({len(page) // 1024} KB)")
