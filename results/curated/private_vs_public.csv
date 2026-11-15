@@ -1,4 +1,4 @@
-model,private_pass,private_n,public_pass,public_n
+model,private_pass,private_attempts,public_pass,public_attempts
 gpt-5.4,0.0,4,0.167,6
 Sonnet 5.5,0.5,4,0.5,6
 Opus 5.5,1.0,4,0.5,6

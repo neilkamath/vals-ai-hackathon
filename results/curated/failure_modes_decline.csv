@@ -1,6 +1,6 @@
-model,never_noticed,noticed_but_computed_anyway,noticed_rationalized,other
-Haiku 4.5,2,0,0,6
-gpt-5.2,6,0,0,2
-gpt-5.4,15,1,0,1
-Sonnet 5.5,0,3,10,0
-Opus 5.5,0,0,7,2
+model,never_noticed,noticed_rationalized,other
+Haiku 4.5,3,0,3
+gpt-5.2,4,0,2
+gpt-5.4,8,0,0
+Sonnet 5.5,0,6,0
+Opus 5.5,0,4,1

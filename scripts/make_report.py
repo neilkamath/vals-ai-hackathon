@@ -1,16 +1,13 @@
-"""Build the results tables and charts from results/attempts.jsonl (written by scripts/collect_results.py).
+"""Build the results tables and charts for the 13-task energy core from results/attempts.jsonl.
 
 Run:  uv run --with pandas --with matplotlib --with seaborn scripts/make_report.py
 
-Outputs go to results/curated/: CSV tables and PNG charts. Reader labels for failed "decline" attempts are read from
-results/curated/failure_labels.json when present (key = first 8 chars of the run id + "|" + task).
+Inputs : results/attempts.jsonl (written by scripts/collect_results.py; local, git-ignored)
+         results/curated/failure_labels.json (reader labels for failed decline attempts; key = run id[:8] + "|" + task)
+Outputs: results/curated/*.csv and *.png
 
-Headline metric: the energy reliability score = mean of two equal-weight modes,
-  (a) fix-and-compute: mean of the four fixable categories (scaling & units, time, meter continuity, streamed intake), and
-  (b) judge-reliability: the silent-sensor-fault category, where the right output is to decline.
-A task passes if the agent gives the correct number or correctly declines. Each category is the mean of its tasks' pass
-rates. Models not run on a category are scored on the categories they cover. Controls and ablation tasks are reported
-separately and never enter the headline.
+Accuracy = mean over the 13 core tasks of each task's pass rate (a task passes when the agent gives the correct number,
+or correctly declines on a decline task). Standard errors are over tasks. Private held-out tasks are reported separately.
 """
 import json
 from pathlib import Path
@@ -28,53 +25,41 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "results" / "curated"
 OUT.mkdir(parents=True, exist_ok=True)
 
-MODEL = {"anthropic/claude-opus-5-5": "Opus 5.5", "anthropic/claude-sonnet-5-5": "Sonnet 5.5", "openai/gpt-5.4": "gpt-5.4",
-         "openai/gpt-5.2": "gpt-5.2", "anthropic/claude-haiku-4-5": "Haiku 4.5", "anthropic/claude-fable-5-2": "Fable 5.2"}
-ORDER = ["Haiku 4.5", "gpt-5.2", "gpt-5.4", "Sonnet 5.5", "Opus 5.5"]
-FRONTIER = ["gpt-5.4", "Sonnet 5.5", "Opus 5.5"]
-
-E = "energy-meter-"
-S = "energy-stream-"
-CATEGORIES = {  # headline categories (equal weights)
+E, S = "energy-meter-", "energy-stream-"
+ANSWERABLE = [E + "rollover-only", E + "rollover-ct", E + "november", E + "swap-november", S + "november"]
+CONTROLS = [E + "october-clean", E + "closure-day"]
+DECLINE = [E + "degraded-month", E + "degraded-month-s2", E + "degraded-month-s3", E + "closure-swap-degraded", S + "degraded",
+           E + "frozen-tail"]
+CORE = ANSWERABLE + CONTROLS + DECLINE
+CATEGORIES = {
     "Scaling & units": [E + "rollover-only", E + "rollover-ct"],
     "Time & calendar": [E + "november"],
-    "Meter continuity": [E + "swap-november", E + "swap-november-s2"],
+    "Meter continuity": [E + "swap-november"],
     "Data intake (streamed)": [S + "november"],
-    "Silent sensor faults (decline)": [E + "degraded-month", E + "degraded-month-s2", E + "degraded-month-s3", E + "degraded-30",
-                                       E + "degraded-60", E + "closure-swap-degraded", E + "stuck-day", E + "frozen-tail",
-                                       S + "gap", S + "degraded"],
+    "Silent sensor faults (decline)": DECLINE,
 }
-CONTROLS = [E + "october-clean", E + "closure-day", S + "clean-week", "exp-checkout-plain", "exp-checkout-clean-window"]
-EXPERIMENT = ["exp-checkout-stacked", "exp-checkout-bots", "exp-checkout-gauntlet", "exp-checkout-srm", "exp-checkout-srm-hidden",
-              "exp-checkout-closure-reassign", "exp-checkout-closure-stack"]
-ABLATION = {
-    "Hint (nudge to check data quality)": [("degraded sensor", E + "degraded-month", E + "degraded-month-hint"),
-                                            ("stacked fixes", "exp-checkout-stacked", "exp-checkout-stacked-hint"),
-                                            ("bot traffic", "exp-checkout-bots", "exp-checkout-bots-hint")],
-    "Wording (explicit vs neutral decline rule)": [("degraded sensor", E + "degraded-month", E + "degraded-month-neutral"),
-                                                   ("hidden skew", "exp-checkout-srm-hidden", "exp-checkout-srm-hidden-neutral")],
-}
-SEVERITY = [("1%", E + "degraded-month"), ("30%", E + "degraded-30"), ("60%", E + "degraded-60")]
-TRAP_LADDER = [(1, E + "rollover-only"), (2, E + "rollover-ct"), (3, E + "november"), (4, E + "swap-november")]
-STACKED_FAULT = ["energy-stacked-degraded-a", "energy-stacked-degraded-b", "energy-stacked-degraded-c",
-                 "energy-stacked-swap-degraded", "energy-stacked-stream-degraded"]
-STACKED_CTRL = ["energy-stacked-clean", "energy-stacked-clean-swap", "energy-stacked-stream-clean"]
-# version 2: part A ends away from the fault, so the question structure does not point at it
-STACKED2_FAULT = [t.replace("energy-stacked-", "energy-stacked2-") for t in STACKED_FAULT]
-STACKED2_CTRL = [t.replace("energy-stacked-", "energy-stacked2-") for t in STACKED_CTRL]
-DECLINE_TASKS = set(CATEGORIES["Silent sensor faults (decline)"]) | {"exp-checkout-srm", "exp-checkout-srm-hidden",
-                                                                      "exp-checkout-closure-reassign", "exp-checkout-closure-stack"}
+LADDER = [(1, E + "rollover-only"), (2, E + "rollover-ct"), (3, E + "november"), (4, E + "swap-november")]
+PRIVATE_MAP = {E + "degraded-month-p1": E + "degraded-month", E + "degraded-month-p2": E + "degraded-month",
+               E + "closure-swap-degraded-p1": E + "closure-swap-degraded", E + "swap-november-p1": E + "swap-november"}
+SKIP_STAGES = ("5-stacked", "fable-probe")
+
+MODEL = {"anthropic/claude-opus-5-5": "Opus 5.5", "anthropic/claude-sonnet-5-5": "Sonnet 5.5", "openai/gpt-5.4": "gpt-5.4",
+         "openai/gpt-5.2": "gpt-5.2", "anthropic/claude-haiku-4-5": "Haiku 4.5"}
+ORDER = ["Haiku 4.5", "gpt-5.2", "gpt-5.4", "Sonnet 5.5", "Opus 5.5"]
+FRONTIER = ["gpt-5.4", "Sonnet 5.5", "Opus 5.5"]
+LAB = {"Haiku 4.5": "Anthropic", "Sonnet 5.5": "Anthropic", "Opus 5.5": "Anthropic", "gpt-5.2": "OpenAI", "gpt-5.4": "OpenAI"}
+LAB_COLOR = {"Anthropic": "#c4623a", "OpenAI": "#2f8f6f"}
+MARK = {"Haiku 4.5": "o", "gpt-5.2": "o", "Sonnet 5.5": "s", "gpt-5.4": "s", "Opus 5.5": "D"}
+AUTO = {"detected_but_reported_number": "noticed_but_computed_anyway", "never_detected": "never_noticed"}
 
 
 def load():
-    rows = [json.loads(line) for line in open(ROOT / "results" / "attempts.jsonl")]
-    df = pd.DataFrame(rows)
-    df["model"] = df["model"].map(MODEL)
-    df["cost"] = df["cost"].fillna(0.0)
-    labels_path = OUT / "failure_labels.json"
-    labels = {x["key"]: x["label"] for x in json.load(open(labels_path))} if labels_path.exists() else {}
+    df = pd.DataFrame([json.loads(line) for line in open(ROOT / "results" / "attempts.jsonl")])
+    df = df[df.model.isin(MODEL) & ~df.stage.isin(SKIP_STAGES)].copy()
+    df["model"] = df.model.map(MODEL)
+    df["cost"] = df.cost.fillna(0.0)
     dur = {}
-    for rid in df["run_id"].unique():
+    for rid in df.run_id.unique():
         f = ROOT / "results" / "raw" / f"{rid}.json"
         if f.exists():
             try:
@@ -82,223 +67,114 @@ def load():
                     dur[(rid, task)] = ev["task_breakdown"]["agent_run_duration"]
             except Exception:
                 pass
-    df["duration_s"] = [dur.get((r, t), np.nan) for r, t in zip(df["run_id"], df["task"])]
-    df["key"] = df["run_id"].str[:8] + "|" + df["task"]
-    df["reader_label"] = df["key"].map(labels)
+    df["duration_s"] = [dur.get((r, t), np.nan) for r, t in zip(df.run_id, df.task)]
+    lp = OUT / "failure_labels.json"
+    labels = {x["key"]: x["label"] for x in json.load(open(lp))} if lp.exists() else {}
+    df["key"] = df.run_id.str[:8] + "|" + df.task
+    df["label"] = df.key.map(labels).fillna(df.failure.map(AUTO))  # reader label, else the automatic one
     return df
 
 
-def se(p, n):
-    return float(np.sqrt(p * (1 - p) / n)) if n else float("nan")
+def task_rates(df, model, tasks):
+    """Per-task pass rate (mean over that task's attempts) for the tasks the model ran."""
+    return df[(df.model == model) & df.task.isin(tasks)].groupby("task").reward.mean()
 
 
-def task_rate(df, task, model):
-    d = df[(df.task == task) & (df.model == model)]
-    return (d.reward.mean(), len(d)) if len(d) else (np.nan, 0)
-
-
-FIX_CATS = [c for c in CATEGORIES if not c.startswith("Silent")]
-JUDGE_CAT = "Silent sensor faults (decline)"
-
-
-def cat_score(df, model, tasks, rng=None):
-    rates = []
-    if rng is not None:  # bootstrap over tasks as well as attempts
-        tasks = list(rng.choice(tasks, size=len(tasks), replace=True))
-    for t in tasks:
-        d = df[(df.task == t) & (df.model == model)]
-        if len(d):
-            r = d.reward.to_numpy()
-            if rng is not None:
-                r = rng.choice(r, size=len(r), replace=True)
-            rates.append(r.mean())
-    return float(np.mean(rates)) if rates else np.nan
-
-
-def modes(df, model, rng=None):
-    """-> (fix_and_compute, judge_reliability, headline)."""
-    fix = [cat_score(df, model, CATEGORIES[c], rng) for c in FIX_CATS]
-    fix = [x for x in fix if not np.isnan(x)]
-    a = float(np.mean(fix)) if fix else np.nan
-    b = cat_score(df, model, CATEGORIES[JUDGE_CAT], rng)
-    return a, b, float(np.mean([a, b])) if not (np.isnan(a) or np.isnan(b)) else np.nan
-
-
-def headline(df, model, rng=None):
-    return modes(df, model, rng)[2]
+def mean_se(r):
+    if len(r) == 0:
+        return np.nan, np.nan
+    return r.mean(), (r.std(ddof=1) / np.sqrt(len(r)) if len(r) > 1 else np.nan)
 
 
 def main():
-    df = load()
-    pub = df[df.stage != "4-private"].copy()
-    rng = np.random.default_rng(0)
+    df_all = load()
+    pub = df_all[(df_all.stage != "4-private") & df_all.task.isin(CORE)].copy()
 
-    # ---- category scores and headline with bootstrap CI --------------------------------------------------------
-    cat_rows, head_rows = [], []
-    for m in ORDER:
-        row = {"model": m}
-        for c, tasks in CATEGORIES.items():
-            d = pub[(pub.model == m) & (pub.task.isin(tasks))]
-            row[c] = d.groupby("task").reward.mean().mean() if len(d) else np.nan
-        cat_rows.append(row)
-        a, b, h = modes(pub, m)
-        boots = [headline(pub, m, rng) for _ in range(1000)] if not np.isnan(h) else []
-        lo, hi = (np.nanpercentile(boots, [2.5, 97.5]) if boots else (np.nan, np.nan))
-        ncat = int(sum(not np.isnan(row[c]) for c in CATEGORIES))
-        head_rows.append({"model": m, "energy_reliability_score": h, "ci_low": lo, "ci_high": hi,
-                          "fix_and_compute": a, "judge_reliability": b, "categories_covered": ncat})
-    cats = pd.DataFrame(cat_rows).set_index("model")
-    head = pd.DataFrame(head_rows).set_index("model")
-    cats.round(3).to_csv(OUT / "category_scores.csv")
-
-    # ---- leaderboard ----------------------------------------------------------------------------------------
+    # ---- leaderboard ---------------------------------------------------------------------------------------
     lb = []
     for m in ORDER:
         d = pub[pub.model == m]
-        ans = d[~d.task.isin(DECLINE_TASKS) & ~d.task.isin(CONTROLS)]
-        dec = d[d.task.isin(DECLINE_TASKS)]
-        ctl = d[d.task.isin(CONTROLS)]
-        lb.append({"model": m, "attempts": len(d), "energy_reliability_score": head.loc[m, "energy_reliability_score"],
-                   "ci_low": head.loc[m, "ci_low"], "ci_high": head.loc[m, "ci_high"],
-                   "fix_and_compute": head.loc[m, "fix_and_compute"], "judge_reliability": head.loc[m, "judge_reliability"],
-                   "categories_covered": head.loc[m, "categories_covered"],
-                   "answerable_pass": ans.reward.mean() if len(ans) else np.nan, "decline_pass": dec.reward.mean() if len(dec) else np.nan,
-                   "control_pass": ctl.reward.mean() if len(ctl) else np.nan, "avg_cost_per_attempt_usd": d.cost.mean(),
-                   "avg_model_calls": d.calls.dropna().mean(), "avg_duration_s": d.duration_s.mean(),
-                   "total_cost_usd": d.cost.sum()})
+        acc, se = mean_se(task_rates(pub, m, CORE))
+        lb.append({"model": m, "accuracy": acc, "se": se, "fixable": task_rates(pub, m, ANSWERABLE).mean(),
+                   "decline": task_rates(pub, m, DECLINE).mean(), "controls": task_rates(pub, m, CONTROLS).mean(),
+                   "tasks_covered": d.task.nunique(), "attempts": len(d), "avg_cost_per_attempt_usd": d.cost.mean(),
+                   "avg_model_calls": d.calls.dropna().mean(), "avg_duration_s": d.duration_s.mean(), "total_cost_usd": d.cost.sum()})
     lb = pd.DataFrame(lb).set_index("model")
     lb.round(3).to_csv(OUT / "leaderboard.csv")
 
-    # ---- per task table -------------------------------------------------------------------------------------
+    # ---- categories, per-task table, over-abstention ---------------------------------------------------------
+    cats = pd.DataFrame({m: {c: task_rates(pub, m, ts).mean() for c, ts in CATEGORIES.items()} for m in ORDER}).T
+    cats.round(3).to_csv(OUT / "category_scores.csv")
     pt = pub.groupby(["task", "model"]).reward.agg(["sum", "count"]).reset_index()
     pt["pass_rate"] = pt["sum"] / pt["count"]
-    pt.pivot(index="task", columns="model", values="pass_rate").reindex(columns=ORDER).round(2).to_csv(OUT / "per_task_pass_rate.csv")
+    pt.pivot(index="task", columns="model", values="pass_rate").reindex(index=CORE, columns=ORDER).round(2).to_csv(OUT / "per_task_pass_rate.csv")
+    ans = pub[pub.task.isin(ANSWERABLE + CONTROLS)]
+    oa = ans.groupby("model").apply(lambda g: g.details.apply(lambda d: bool(d.get("abstained"))).mean(), include_groups=False)
+    oa.reindex(ORDER).rename("over_abstention_rate").round(3).to_csv(OUT / "over_abstention.csv")
 
-    # ---- ablations (pooled over frontier models) -------------------------------------------------------------
-    abl = []
-    fr = pub[pub.model.isin(FRONTIER)]
-    for group, pairs in ABLATION.items():
-        for name, base, var in pairs:
-            for label, t in (("plain", base), ("variant", var)):
-                d = fr[fr.task == t]
-                if len(d):
-                    p = d.reward.mean()
-                    abl.append({"group": group, "case": name, "arm": label, "task": t, "pass_rate": p, "se": se(p, len(d)), "n": len(d)})
-    for name, t in SEVERITY:
-        d = fr[fr.task == t]
-        if len(d):
-            p = d.reward.mean()
-            abl.append({"group": "Sensor severity (reads x% of true)", "case": name, "arm": name, "task": t, "pass_rate": p, "se": se(p, len(d)), "n": len(d)})
-    abl = pd.DataFrame(abl)
-    abl.round(3).to_csv(OUT / "ablations.csv", index=False)
-
-    # ---- detect vs act (decline attempts, reader labels when present) -----------------------------------------
-    dec_all = pub[pub.task.isin(DECLINE_TASKS)].copy()
-    if dec_all.reader_label.notna().any():
-        # attempts whose final answer text could not be read are excluded and counted separately
-        unreadable = (dec_all.reward == 0) & (dec_all.reader_label.fillna("other") == "other")
-        dec = dec_all[~unreadable].copy()
-        dec["noticed"] = (dec.reward == 1) | dec.reader_label.isin(["noticed_rationalized", "noticed_but_computed_anyway"])
-        n_unread = unreadable.groupby(dec_all.model).sum()
-    else:
-        dec = dec_all.copy()
-        dec["noticed"] = (dec.reward == 1) | dec.failure.eq("detected_but_reported_number")
-        n_unread = pd.Series(0, index=ORDER)
-    da = dec.groupby("model").agg(n=("reward", "size"), noticed=("noticed", "mean"), acted=("reward", "mean")).reindex(ORDER).dropna()
-    da["detect_act_gap"] = da["noticed"] - da["acted"]
-    da["unreadable_excluded"] = n_unread.reindex(da.index).fillna(0).astype(int)
+    # ---- noticing vs acting on decline tasks (unreadable answers excluded and counted) -----------------------
+    dec = pub[pub.task.isin(DECLINE)].copy()
+    unreadable = (dec.reward == 0) & dec.label.fillna("other").isin(["other"])
+    readable = dec[~unreadable].copy()
+    readable["noticed"] = (readable.reward == 1) | readable.label.isin(["noticed_rationalized", "noticed_but_computed_anyway"])
+    da = readable.groupby("model").agg(readable_attempts=("reward", "size"), noticed=("noticed", "mean"), declined=("reward", "mean"))
+    da["gap"] = da.noticed - da.declined
+    da["unreadable_excluded"] = unreadable.groupby(dec.model).sum()
+    da = da.reindex(ORDER).dropna(subset=["readable_attempts"])
     da.round(3).to_csv(OUT / "detect_vs_act.csv")
-    fm = dec_all[dec_all.reward == 0].groupby(["model", dec_all[dec_all.reward == 0].reader_label.fillna(dec_all[dec_all.reward == 0].failure)]).size().unstack(fill_value=0).reindex(ORDER).dropna(how="all")
-    fm.to_csv(OUT / "failure_modes_decline.csv")
+    dec[dec.reward == 0].groupby(["model", dec[dec.reward == 0].label.fillna("other")]).size().unstack(fill_value=0).reindex(ORDER).dropna(how="all").to_csv(OUT / "failure_modes_decline.csv")
 
-    # ---- over-abstention on answerable attempts -------------------------------------------------------------
-    answ = pub[~pub.task.isin(DECLINE_TASKS)]
-    oa = answ.groupby("model").apply(lambda g: g.details.apply(lambda d: bool(d.get("abstained"))).mean(), include_groups=False).reindex(ORDER).dropna()
-    oa.rename("over_abstention_rate").round(3).to_csv(OUT / "over_abstention.csv")
+    # ---- private held-out seeds vs their public counterparts ---------------------------------------------------
+    priv = df_all[df_all.stage == "4-private"]
+    rows = []
+    for m in FRONTIER:
+        p = priv[priv.model == m]
+        pu = pub[(pub.model == m) & pub.task.isin(set(PRIVATE_MAP.values()))]
+        rows.append({"model": m, "private_pass": p.reward.mean(), "private_attempts": len(p), "public_pass": pu.reward.mean(), "public_attempts": len(pu)})
+    pd.DataFrame(rows).round(3).to_csv(OUT / "private_vs_public.csv", index=False)
 
-    # ---- private held-out seeds vs their public counterparts ------------------------------------------------
-    priv = df[df.stage == "4-private"]
-    if len(priv):
-        mapping = {E + "degraded-month-p1": E + "degraded-month", E + "degraded-month-p2": E + "degraded-month",
-                   E + "closure-swap-degraded-p1": E + "closure-swap-degraded", E + "swap-november-p1": E + "swap-november"}
-        pr = []
-        for m in FRONTIER:
-            p = priv[priv.model == m]
-            pu = pub[(pub.model == m) & pub.task.isin(set(mapping.values()))]
-            pr.append({"model": m, "private_pass": p.reward.mean(), "private_n": len(p), "public_pass": pu.reward.mean(), "public_n": len(pu)})
-        pd.DataFrame(pr).round(3).to_csv(OUT / "private_vs_public.csv", index=False)
-
-    # ---- stacked tasks: compute what you can AND decline what you cannot (joint pass), by version --------------
-    sj_rows, stk_all = [], df[df.task.str.startswith("energy-stacked")].copy()
-    if len(stk_all):
-        stk_all["pa"] = stk_all.details.apply(lambda d: (d.get("parts") or {}).get("a", np.nan))
-        stk_all["pb"] = stk_all.details.apply(lambda d: (d.get("parts") or {}).get("b", np.nan))
-        for version, flt, ctl in (("v1 guided (A ends Nov 25 next to the fault)", STACKED_FAULT, STACKED_CTRL),
-                                  ("v2 unguided (A ends Nov 15 away from the fault)", STACKED2_FAULT, STACKED2_CTRL)):
-            for m in ORDER:
-                f = stk_all[(stk_all.model == m) & stk_all.task.isin(flt)]
-                c = stk_all[(stk_all.model == m) & stk_all.task.isin(ctl)]
-                if len(f) or len(c):
-                    sj_rows.append({"version": version, "model": m, "fault_tasks_n": len(f), "part_a_compute": f.pa.mean() if len(f) else np.nan,
-                                    "part_b_decline": f.pb.mean() if len(f) else np.nan, "joint_pass_fault_tasks": f.reward.mean() if len(f) else np.nan,
-                                    "control_tasks_n": len(c), "joint_pass_controls": c.reward.mean() if len(c) else np.nan})
-        sj = pd.DataFrame(sj_rows)
-        sj.round(3).to_csv(OUT / "stacked_joint.csv", index=False)
-        stk_all[stk_all.reward == 0].groupby(["model", "failure"]).size().unstack(fill_value=0).to_csv(OUT / "stacked_failure_modes.csv")
-    else:
-        sj = pd.DataFrame()
-
-    # =================================== charts ==================================================================
+    # =================================== charts =================================================================
     sns.set_theme(style="whitegrid", context="talk", rc={"axes.grid.axis": "y"})
-    colors = dict(zip(ORDER, sns.color_palette("viridis", len(ORDER))))
+    colors = {m: LAB_COLOR[LAB[m]] for m in ORDER}
 
-    # 1. Pareto panels: reliability vs cost, vs latency, and the judge-reliability mode vs cost
-    LAB = {"Haiku 4.5": "Anthropic", "Sonnet 5.5": "Anthropic", "Opus 5.5": "Anthropic", "gpt-5.2": "OpenAI", "gpt-5.4": "OpenAI"}
-    LAB_COLOR = {"Anthropic": "#c4623a", "OpenAI": "#2f8f6f"}
-    MARK = {"Haiku 4.5": "o", "gpt-5.2": "o", "Sonnet 5.5": "s", "gpt-5.4": "s", "Opus 5.5": "D"}
-    panels = [("avg_cost_per_attempt_usd", "energy_reliability_score", "Cost per attempt (USD, log scale)", "Energy reliability score", True),
-              ("avg_duration_s", "energy_reliability_score", "Agent time per attempt (seconds, log scale)", "Energy reliability score", True),
-              ("avg_cost_per_attempt_usd", "judge_reliability", "Cost per attempt (USD, log scale)", "Judge-reliability mode (decline tasks)", True)]
-    fig, axes = plt.subplots(1, 3, figsize=(19, 5.6))
-    for ax, (xc, yc, xl, yl, logx) in zip(axes, panels):
-        pts = [(lb.loc[m, xc], lb.loc[m, yc], m) for m in ORDER if m in lb.index and not np.isnan(lb.loc[m, yc]) and not np.isnan(lb.loc[m, xc])]
+    # 1. accuracy vs cost and vs time, with frontier
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5.6))
+    for ax, xc, xl, ticks, fmt in ((axes[0], "avg_cost_per_attempt_usd", "Cost per attempt (USD, log scale)", [0.06, 0.08, 0.10, 0.13], "${:.2f}"),
+                                   (axes[1], "avg_duration_s", "Agent time per attempt (seconds, log scale)", [30, 40, 60, 100], "{:g}s")):
+        pts = sorted((lb.loc[m, xc], lb.loc[m, "accuracy"], m) for m in ORDER if not np.isnan(lb.loc[m, "accuracy"]))
         front, best = [], -1
-        for x_, y_, m in sorted(pts):  # Pareto frontier: cheapest-first, keep only points that improve on everything cheaper
+        for x_, y_, m in pts:
             if y_ > best:
                 front.append((x_, y_))
                 best = y_
         if len(front) > 1:
             fx, fy = zip(*front)
-            ax.step(fx, fy, where="post", color="#888", lw=1.6, ls="--", zorder=1, label="Pareto frontier")
+            ax.step(fx, fy, where="post", color="#888", lw=1.6, ls="--", zorder=1)
         for x_, y_, m in pts:
-            n = lb.loc[m, "attempts"]
-            err = None
-            if yc == "energy_reliability_score":
-                err = [[y_ - lb.loc[m, "ci_low"]], [lb.loc[m, "ci_high"] - y_]]
-                ax.errorbar(x_, y_, yerr=err, fmt="none", ecolor=LAB_COLOR[LAB[m]], alpha=0.55, capsize=4, zorder=2)
-            ax.scatter(x_, y_, s=60 + 4 * n, marker=MARK[m], color=LAB_COLOR[LAB[m]], edgecolor="white", linewidth=1.2, zorder=3)
-            ax.annotate(m, (x_, y_), textcoords="offset points", xytext=(10, -16 if m in ("gpt-5.4",) else 7), fontsize=11)
+            se_ = lb.loc[m, "se"]
+            ax.errorbar(x_, y_, yerr=0 if np.isnan(se_) else se_, fmt="none", ecolor=colors[m], alpha=0.5, capsize=4, zorder=2)
+            ax.scatter(x_, y_, s=60 + 4 * lb.loc[m, "attempts"], marker=MARK[m], color=colors[m], edgecolor="white", linewidth=1.2, zorder=3)
+            ax.annotate(m, (x_, y_), textcoords="offset points", xytext=(-10, 9) if m == "Sonnet 5.5" else (10, 8),
+                        ha="right" if m == "Sonnet 5.5" else "left", fontsize=11)
         ax.set_xscale("log")
-        ticks = [0.05, 0.07, 0.10, 0.14] if xc.startswith("avg_cost") else [30, 40, 60, 100]
         ax.set_xticks(ticks)
-        ax.set_xticklabels([f"${t:.2f}" if xc.startswith("avg_cost") else f"{t}s" for t in ticks])
+        ax.set_xticklabels([fmt.format(t) for t in ticks])
         ax.xaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
         ax.set_xlabel(xl, fontsize=12)
-        ax.set_ylabel(yl, fontsize=12)
+        ax.set_ylabel("Accuracy (13 core tasks)", fontsize=12)
         ax.set_ylim(-0.02, 1.0)
-        ax.margins(x=0.18)
+        ax.margins(x=0.15)
     handles = [plt.Line2D([], [], marker="o", ls="", color=c, label=l) for l, c in LAB_COLOR.items()]
-    handles += [plt.Line2D([], [], color="#888", ls="--", label="Pareto frontier"),
-                plt.Line2D([], [], marker="o", ls="", color="#bbb", label="marker size = attempts")]
+    handles += [plt.Line2D([], [], color="#888", ls="--", label="Pareto frontier"), plt.Line2D([], [], marker="o", ls="", color="#bbb", label="marker size = attempts")]
     fig.legend(handles=handles, loc="lower center", ncol=4, frameon=False, fontsize=11)
-    fig.suptitle("Reliability, cost and time (bars: 95% bootstrap interval; right panel: hard mode only)", fontsize=15)
+    fig.suptitle("Accuracy vs cost and time (error bars: +/-1 SE over tasks)", fontsize=15)
     fig.tight_layout(rect=(0, 0.07, 1, 0.95))
-    fig.savefig(OUT / "fig1_reliability_vs_cost.png", dpi=150)
+    fig.savefig(OUT / "fig1_accuracy_vs_cost.png", dpi=150)
     plt.close(fig)
 
-    # 2. Category heat map
-    fig, ax = plt.subplots(figsize=(10, 4.8))
-    sns.heatmap(cats.dropna(how="all") * 100, annot=True, fmt=".0f", cmap="RdYlGn", vmin=0, vmax=100, cbar_kws={"label": "pass rate (%)"}, ax=ax)
+    # 2. category heat map
+    fig, ax = plt.subplots(figsize=(10.5, 4.8))
+    sns.heatmap(cats * 100, annot=True, fmt=".0f", cmap="RdYlGn", vmin=0, vmax=100, cbar_kws={"label": "pass rate (%)"}, ax=ax)
     ax.set_ylabel("")
     ax.set_title("Pass rate by failure category")
     plt.setp(ax.get_xticklabels(), rotation=20, ha="right")
@@ -306,83 +182,51 @@ def main():
     fig.savefig(OUT / "fig2_category_heatmap.png", dpi=160)
     plt.close(fig)
 
-    # 3. Answerable vs decline
-    fig, ax = plt.subplots(figsize=(8, 5))
-    x = np.arange(len(lb))
-    w = 0.38
-    for i, (col, lab) in enumerate((("answerable_pass", "Fix and compute"), ("decline_pass", "Judge reliability (decline)"))):
-        ns = [len(pub[(pub.model == m) & (pub.task.isin(DECLINE_TASKS) if col == "decline_pass" else ~pub.task.isin(DECLINE_TASKS | set(CONTROLS)))]) for m in lb.index]
-        ses = [se(v, n) if n else 0 for v, n in zip(lb[col].fillna(0), ns)]
-        ax.bar(x + (i - 0.5) * w, lb[col].fillna(0), w, yerr=ses, capsize=3, label=lab)
+    # 3. fixable vs decline vs controls
+    fig, ax = plt.subplots(figsize=(9.5, 5))
+    x = np.arange(len(ORDER))
+    for i, (col, lab, tasks) in enumerate((("fixable", "Fix and compute (5 tasks)", ANSWERABLE), ("decline", "Judge reliability: decline (6 tasks)", DECLINE),
+                                            ("controls", "Clean controls (2 tasks)", CONTROLS))):
+        vals = [lb.loc[m, col] for m in ORDER]
+        errs = [mean_se(task_rates(pub, m, tasks))[1] for m in ORDER]
+        bars = ax.bar(x + (i - 1) * 0.27, np.nan_to_num(vals), 0.27, yerr=np.nan_to_num(errs), capsize=3, label=lab)
+        for b in bars:
+            ax.text(b.get_x() + b.get_width() / 2, b.get_height() + 0.03, f"{b.get_height() * 100:.0f}%", ha="center", fontsize=9)
     ax.set_xticks(x)
-    ax.set_xticklabels(lb.index, rotation=15)
-    ax.set_ylim(0, 1.05)
+    ax.set_xticklabels(ORDER)
+    ax.set_ylim(0, 1.2)
     ax.set_ylabel("Pass rate")
-    ax.legend(loc="upper left", fontsize=11)
+    ax.legend(fontsize=9, loc="upper left")
     ax.set_title("Mechanics vs judgment")
     fig.tight_layout()
-    fig.savefig(OUT / "fig3_answerable_vs_decline.png", dpi=160)
+    fig.savefig(OUT / "fig3_fix_vs_decline.png", dpi=160)
     plt.close(fig)
 
-    # 4. Detect vs act
-    if len(da):
+    # 4. noticing vs acting
+    d4 = da.reindex(FRONTIER).dropna(subset=["readable_attempts"])
+    if len(d4):
         fig, ax = plt.subplots(figsize=(8, 5))
-        x = np.arange(len(da))
-        ax.bar(x - 0.2, da["noticed"], 0.4, label="Noticed the problem")
-        ax.bar(x + 0.2, da["acted"], 0.4, label="Acted (declined)")
+        x = np.arange(len(d4))
+        for i, (col, lab) in enumerate((("noticed", "Noticed the problem"), ("declined", "Declined (correct)"))):
+            bars = ax.bar(x + (i - 0.5) * 0.4, d4[col], 0.4, label=lab)
+            for b in bars:
+                ax.text(b.get_x() + b.get_width() / 2, b.get_height() + 0.03, f"{b.get_height() * 100:.0f}%", ha="center", fontsize=10)
         ax.set_xticks(x)
-        ax.set_xticklabels(da.index, rotation=15)
-        ax.set_ylim(0, 1.05)
-        ax.set_ylabel("Share of decline attempts")
-        ax.legend(fontsize=11)
+        ax.set_xticklabels([f"{m}\n(n={int(d4.loc[m, 'readable_attempts'])})" for m in d4.index])
+        ax.set_ylim(0, 1.15)
+        ax.set_ylabel("Share of readable decline attempts")
+        ax.legend(fontsize=10)
         ax.set_title("Noticing is not acting")
         fig.tight_layout()
-        fig.savefig(OUT / "fig4_detect_vs_act.png", dpi=160)
+        fig.savefig(OUT / "fig4_noticing_vs_acting.png", dpi=160)
         plt.close(fig)
 
-    # 5. Ablations
-    ARMS = {"Hint (nudge to check data quality)": ("no hint", "hint"),
-            "Wording (explicit vs neutral decline rule)": ("explicit rule", "neutral rule")}
-
-    def label_bars(ax, bars):
-        for b in bars:
-            h = b.get_height()
-            ax.text(b.get_x() + b.get_width() / 2, h + 0.03, f"{h * 100:.0f}%", ha="center", va="bottom", fontsize=11)
-
-    if len(abl):
-        groups = list(abl.group.unique())
-        fig, axes = plt.subplots(1, len(groups), figsize=(5.4 * len(groups), 5.2), sharey=True)
-        for ax, g in zip(np.atleast_1d(axes), groups):
-            d = abl[abl.group == g]
-            if g.startswith("Sensor"):
-                bars = ax.bar(d.arm, d.pass_rate, yerr=d.se, capsize=4, color=sns.color_palette("mako", len(d)))
-                label_bars(ax, bars)
-            else:
-                cases = list(d.case.unique())
-                xs = np.arange(len(cases))
-                for i, arm in enumerate(("plain", "variant")):
-                    dd = d[d.arm == arm].set_index("case").reindex(cases)
-                    bars = ax.bar(xs + (i - 0.5) * 0.38, dd.pass_rate.fillna(0), 0.38, yerr=dd.se.fillna(0), capsize=3, label=ARMS[g][i])
-                    label_bars(ax, bars)
-                ax.set_xticks(xs)
-                ax.set_xticklabels(cases, rotation=15)
-                ax.legend(fontsize=10, loc="upper right")
-            ax.set_title(g, fontsize=12)
-            ax.set_ylim(0, 1.25)
-        np.atleast_1d(axes)[0].set_ylabel("Pass rate (frontier models pooled)")
-        fig.suptitle("Ablations (error bars: +/-1 SE; n is small)", fontsize=14)
-        fig.tight_layout()
-        fig.savefig(OUT / "fig5_ablations.png", dpi=160)
-        plt.close(fig)
-
-    # 6. Trap ladder (small x offsets and distinct styles so overlapping lines stay visible)
+    # 5. difficulty ladder
     fig, ax = plt.subplots(figsize=(7.8, 5))
     styles = {"Haiku 4.5": ":", "gpt-5.2": "--", "gpt-5.4": "-.", "Sonnet 5.5": "-", "Opus 5.5": "-"}
     for k, m in enumerate(ORDER):
-        ys = [task_rate(pub, t, m)[0] for _, t in TRAP_LADDER]
-        if not all(np.isnan(ys)):
-            off = (k - 2) * 0.045
-            ax.plot([n + off for n, _ in TRAP_LADDER], ys, "o", linestyle=styles[m], label=m, color=colors[m], lw=2, ms=8)
+        ys = [task_rates(pub, m, [t]).mean() for _, t in LADDER]
+        ax.plot([n + (k - 2) * 0.045 for n, _ in LADDER], ys, "o", linestyle=styles[m], label=m, color=colors[m], lw=2, ms=8)
     ax.set_xticks([1, 2, 3, 4])
     ax.set_xlabel("Recording problems to fix")
     ax.set_ylabel("Pass rate")
@@ -390,60 +234,28 @@ def main():
     ax.legend(fontsize=10, loc="center left")
     ax.set_title("Difficulty ladder (answerable energy tasks)")
     fig.tight_layout()
-    fig.savefig(OUT / "fig6_trap_ladder.png", dpi=160)
+    fig.savefig(OUT / "fig5_difficulty_ladder.png", dpi=160)
     plt.close(fig)
 
-    # 8. Stacked: compute what you can AND decline what you cannot (one row per version)
-    if len(sj):
-        versions = list(sj.version.unique())
-        fig, axes = plt.subplots(len(versions), 2, figsize=(12.5, 4.8 * len(versions)), gridspec_kw={"width_ratios": [3, 1.6]}, squeeze=False)
-        for (ax1, ax2), ver in zip(axes, versions):
-            d = sj[sj.version == ver].set_index("model")
-            x = np.arange(len(d))
-            w = 0.26
-            for i, (col, lab, colr) in enumerate((("part_a_compute", "Part A: compute the safe total", "#4c78a8"),
-                                                   ("part_b_decline", "Part B: decline the unsafe total", "#f58518"),
-                                                   ("joint_pass_fault_tasks", "Both right (joint)", "#222222"))):
-                vals = d[col].fillna(0)
-                bars = ax1.bar(x + (i - 1) * w, vals, w, yerr=[se(v, n) if n else 0 for v, n in zip(vals, d["fault_tasks_n"])], capsize=3, label=lab, color=colr)
-                for b_ in bars:
-                    ax1.text(b_.get_x() + b_.get_width() / 2, b_.get_height() + 0.03, f"{b_.get_height() * 100:.0f}%", ha="center", fontsize=10)
-            ax1.set_xticks(x)
-            ax1.set_xticklabels(d.index)
-            ax1.set_ylim(0, 1.2)
-            ax1.set_ylabel("Pass rate")
-            ax1.set_title(f"Hidden fault, {ver}", fontsize=11)
-            if ver == versions[0]:
-                ax1.legend(fontsize=9, loc="upper left")
-            vals = d["joint_pass_controls"].fillna(0)
-            bars = ax2.bar(x, vals, 0.5, yerr=[se(v, n) if n else 0 for v, n in zip(vals, d["control_tasks_n"])], capsize=3, color="#54a24b")
-            for b_ in bars:
-                ax2.text(b_.get_x() + b_.get_width() / 2, b_.get_height() + 0.03, f"{b_.get_height() * 100:.0f}%", ha="center", fontsize=10)
-            ax2.set_xticks(x)
-            ax2.set_xticklabels(d.index, rotation=15)
-            ax2.set_ylim(0, 1.2)
-            ax2.set_title("Clean controls (both parts numeric)", fontsize=11)
-        fig.suptitle("Compute what you can, refuse what you cannot (error bars: +/-1 SE, n is small)", fontsize=14)
-        fig.tight_layout()
-        fig.savefig(OUT / "fig8_stacked_joint.png", dpi=160)
-        plt.close(fig)
-
-    # 7. Calls per attempt, pass vs fail
-    d = pub[pub.calls.notna() & pub.model.isin(ORDER)].copy()
-    d["outcome"] = np.where(d.reward == 1, "pass", "fail")
+    # 6. model calls per attempt
+    d6 = pub[pub.calls.notna()].copy()
+    d6["outcome"] = np.where(d6.reward == 1, "pass", "fail")
     fig, ax = plt.subplots(figsize=(8.5, 5))
-    sns.boxplot(data=d, x="model", y="calls", hue="outcome", order=[m for m in ORDER if m in set(d.model)], ax=ax)
+    sns.boxplot(data=d6, x="model", y="calls", hue="outcome", order=ORDER, ax=ax)
     ax.set_ylabel("Model calls per attempt")
     ax.set_xlabel("")
     ax.set_title("Failures are not step-limit truncation")
     fig.tight_layout()
-    fig.savefig(OUT / "fig7_calls_per_attempt.png", dpi=160)
+    fig.savefig(OUT / "fig6_calls_per_attempt.png", dpi=160)
     plt.close(fig)
 
     print(lb.round(3).to_string())
     print()
     print(cats.round(2).to_string())
-    print("\nwrote:", ", ".join(sorted(p.name for p in OUT.iterdir())))
+    print()
+    print(da.round(2).to_string())
+    print()
+    print(pd.read_csv(OUT / "private_vs_public.csv").to_string(index=False))
 
 
 if __name__ == "__main__":
