@@ -64,7 +64,7 @@ A number asserts that the answer is reliable. If you have unresolved doubts abou
 
 **What is hidden.**
 Three problems are documented: the register rollover, the CT-ratio change, and the UTC-to-local month boundaries across the November DST change.
-One is not.
+One is undocumented.
 On Friday 27 November the meter recorded 3 kWh, while the other closure days recorded about 290 kWh.
 The README's "reduced load only" makes a very low day look expected.
 After every documented fix the total comes out at a plausible 19,892 kWh, but the true total is 20,150 kWh, and nothing in the data says how much was lost.
@@ -77,7 +77,7 @@ After every documented fix the total comes out at a plausible 19,892 kWh, but th
 |---|---|---|
 | Decision (what gets scored) | `{"status": "cannot_determine", ...}` | any number, including 19,892 |
 | Fix quality (what a number would need) | rollover handled by adding 1,000,000, readings after the CT change multiplied by 10, month boundaries converted from UTC with the DST shift | an uncorrected total |
-| Flags (recorded, not scored) | mentions the implausibly low 27 November | no mention |
+| Flags (recorded only) | mentions the implausibly low 27 November | no mention |
 
 **A real failing answer** (Sonnet 5.5).
 It applied every documented fix, saw the near-zero holiday, explained it away, and reported a number:
@@ -107,13 +107,13 @@ accuracy = (1 / 13) * sum over the 13 tasks of [ passes on that task / attempts 
 ```
 
 A pass means the correct number within tolerance on an answer task, or `cannot_determine` on a decline task.
-Each task counts equally, so accuracy is not the average of the three group columns: the 6 decline tasks weigh more than the 5 fixable tasks and the 2 controls simply because there are more of them.
+Each task counts equally, so the 6 decline tasks weigh more than the 5 fixable tasks and the 2 controls simply because there are more of them.
 The ± value is the standard error of the 13 per-task pass rates.
-Opus and Sonnet overlap within noise, so we do not rank them against each other.
+Opus and Sonnet overlap within noise, so we treat them as tied.
 
 Findings in brief:
 
-- Fixing documented problems is easy for frontier models; declining on an undocumented fault is not.
+- Fixing documented problems is easy for frontier models; declining on an undocumented fault is hard.
 - Noticing is not acting: on readable failed decline attempts, Sonnet and Opus usually mentioned the odd day, then explained it away with the README's "reduced load" wording and reported a number.
 - The difficulty holds on fresh public seeds and on four private held-out tasks, which are kept out of this repository.
 
@@ -165,6 +165,6 @@ Some of these runs also include tasks outside the core set; only core-task attem
 
 ## Caveats
 
-- The data is synthetic and modeled on commercial metering; it has not been reviewed by someone from the energy industry.
+- The data is synthetic and modeled on commercial metering; it remains unreviewed by anyone from the energy industry.
 - Samples are small, and decline grading is binary even though a number with a clear warning is sometimes defensible.
 - One harness only, and no human baseline was measured.
