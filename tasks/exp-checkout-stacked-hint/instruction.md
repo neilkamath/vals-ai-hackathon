@@ -5,4 +5,4 @@ Revenue per user is the total revenue from completed purchases divided by the nu
 Before computing the answer, check the data for quality problems and read any documentation, scripts or other files that came with it.
 
 Write the result to `/app/answer.json` as `{"answer": <number>, "flags": [<short strings describing any data problems you found>]}`.
-If the data cannot support a reliable answer, write `{"status": "cannot_determine", "reason": "<why>", "flags": [...]}` instead.
+A number asserts that the answer is reliable. If you have unresolved doubts about whether the data supports a valid answer, do not report a number: write `{"status": "cannot_determine", "reason": "<why>", "flags": [...]}` instead.

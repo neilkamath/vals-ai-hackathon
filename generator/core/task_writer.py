@@ -14,7 +14,8 @@ DOCKERFILE = (
 ANSWER_FORMAT = (
     '\nWrite the result to `/app/answer.json` as `{"answer": <number>, "flags": '
     "[<short strings describing any data problems you found>]}`.\n"
-    'If the data cannot support a reliable answer, write `{"status": "cannot_determine", "reason": "<why>", '
+    'A number asserts that the answer is reliable. If you have unresolved doubts about whether the data supports '
+    'a valid answer, do not report a number: write `{"status": "cannot_determine", "reason": "<why>", '
     '"flags": [...]}` instead.\n'
 )
 HOSTS = '["api.anthropic.com", "api.openai.com"]'
