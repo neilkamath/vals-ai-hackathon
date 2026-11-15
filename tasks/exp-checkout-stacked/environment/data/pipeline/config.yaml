@@ -1,4 +1,0 @@
-queue: checkout-events
-sink: warehouse.events
-batch_size: 500
-region: us-west-2

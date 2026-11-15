@@ -1,7 +1,0 @@
-Meter replacement form
-
-Date and time: 2026-11-08 14:00 (site local time)
-Reason: end of life, scheduled replacement
-Old meter: M-1001. Its last hourly reading is its final reading.
-New meter: M-1002, installed at the time above with its register at 0.0 kWh.
-CT ratio unchanged.

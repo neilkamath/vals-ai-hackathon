@@ -1,2 +1,0 @@
--- housekeeping
-ANALYZE pricing;

@@ -1,6 +1,0 @@
-Electronic energy meter, model EM-300
-
-Interval: one reading per hour, taken at the end of the hour.
-Register: 6 digits and one decimal (0.0 to 999999.9 kWh).
-After 999999.9 the register rolls over to 0.0 and keeps counting.
-Accuracy class 0.5S.
