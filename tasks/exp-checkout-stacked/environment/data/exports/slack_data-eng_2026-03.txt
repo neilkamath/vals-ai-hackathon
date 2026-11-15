@@ -2,7 +2,7 @@
 
 [03/02 10:12] marco: reminder, warehouse backfill finishes tonight
 [03/03 09:30] dev: who owns the dashboard refresh cron? it skipped twice
-[03/05 16:40] priya: ok the config incident is sorted. I re-ran the bucketing job and it re-rolled 218 users who were already in the test.
+[03/05 16:40] priya: ok the config incident is sorted. I re-ran the bucketing job and it re-rolled 222 users who were already in the test.
 [03/05 16:41] priya: I left the old rows in the assignments table for audit, so those users have two rows now
 [03/05 16:43] priya: the first assignment is the one they actually experienced, the re-rolled ones never saw the other arm
 [03/06 11:05] marco: lunch?

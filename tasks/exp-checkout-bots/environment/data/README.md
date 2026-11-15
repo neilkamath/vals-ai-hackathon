@@ -12,4 +12,5 @@ Test of a new checkout flow. Users are randomly assigned to `control` or `treatm
 - `event_type`: `add_to_cart` or `checkout_complete` (a completed purchase)
 - `amount`: purchase value in USD (0 for non-purchase events)
 
+Metrics are computed over human customers.
 Large orders (over $1,500) come from verified wholesale accounts and are valid.

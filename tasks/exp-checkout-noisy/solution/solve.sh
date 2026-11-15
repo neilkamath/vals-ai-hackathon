@@ -29,6 +29,6 @@ for r in event_rows:
     if a:
         rev[a] += float(r['amount'])
 lift = rev['treatment'] / n['treatment'] - rev['control'] / n['control']
-flags = ['218 users were re-assigned to the other arm on 2026-03-05 (assigned twice, in both arms); the first assignment is the one that counts', 'duplicate purchase events from 2026-03-09 (retries re-sent with the same request_id); deduplicated by request_id', "event_type 'checkout_complete' was renamed to 'order_placed' from 2026-03-12; counted both names as purchases"]
+flags = ['222 users were re-assigned to the other arm on 2026-03-05 (assigned twice, in both arms); the first assignment is the one that counts', 'duplicate purchase events from 2026-03-09 (retries re-sent with the same request_id); deduplicated by request_id', "event_type 'checkout_complete' was renamed to 'order_placed' from 2026-03-12; counted both names as purchases"]
 json.dump({'answer': round(lift, 4), 'flags': flags}, open('/app/answer.json', 'w'))
 PY

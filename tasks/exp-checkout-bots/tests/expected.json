@@ -1,1 +1,1 @@
-{"answer": 5.8283, "tolerance_rel": 0, "tolerance_abs": 0.01, "traps": [{"id": "bot_traffic", "keywords": ["bot", "crawler", "automated", "non-human", "scraper", "abnormal activity", "inhuman", "excessive events", "extreme event"]}], "overcorrect_answer": 2.0397}
+{"answer": 4.5594, "tolerance_rel": 0, "tolerance_abs": 0.01, "traps": [{"id": "bot_traffic", "keywords": ["bot", "crawler", "automated", "non-human", "scraper", "abnormal activity", "inhuman", "excessive events", "extreme event"]}], "overcorrect_answer": 1.2739}

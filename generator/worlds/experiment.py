@@ -60,8 +60,10 @@ class ExperimentWorld(World):
                 day = start + timedelta(days=d)
                 t = datetime(day.year, day.month, day.day, rng.randint(7, 21), rng.randint(0, 59), rng.randint(0, 59))
                 orders = [(t, amount)]
-                if rng.random() < p["repeat_rate"]:  # real repeat purchase, same day and amount
-                    orders.append((t + timedelta(minutes=rng.randint(5, 90)), amount))
+                if rng.random() < p["repeat_rate"]:  # real repeat purchase the same day
+                    # usually a different basket; sometimes the same amount (reorder of the same item)
+                    again = amount if rng.random() < p.get("repeat_same_amount", 0.15) else round(rng.lognormvariate(3.6, 0.7), 2)
+                    orders.append((t + timedelta(minutes=rng.randint(5, 90)), again))
                 for ot, amt in orders:
                     cart_t = ot - timedelta(minutes=rng.randint(2, 20))
                     for typ, tt, a in (("add_to_cart", cart_t, 0.0), (PURCHASE, ot, amt)):
@@ -88,6 +90,7 @@ class ExperimentWorld(World):
             "- `request_id`: unique id of the checkout request (each customer action has its own; a customer may make several purchases)\n- `user_id`, `ts` (UTC)\n"
             "- `event_type`: `add_to_cart` or `checkout_complete` (a completed purchase)\n"
             "- `amount`: purchase value in USD (0 for non-purchase events)\n\n"
+            "Metrics are computed over human customers.\n"
             "Large orders (over $1,500) come from verified wholesale accounts and are valid.\n")
         files = {"assignments.csv": _csv(assigns, ["user_id", "arm", "assigned_at"]),
                  "events.csv": _csv(events, ["event_id", "request_id", "user_id", "ts", "event_type", "amount"]),
