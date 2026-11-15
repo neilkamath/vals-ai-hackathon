@@ -28,7 +28,7 @@ def write(spec, files, expected, solve_py, out_root):
         f.parent.mkdir(parents=True, exist_ok=True)
         f.write_text(text)
     (task / "environment/Dockerfile").write_text(DOCKERFILE)
-    (task / "instruction.md").write_text(spec["question"].strip() + "\n" + ANSWER_FORMAT)
+    (task / "instruction.md").write_text(spec["question"].strip() + "\n" + (("\n" + spec["instruction_suffix"].strip() + "\n") if spec.get("instruction_suffix") else "") + ANSWER_FORMAT)
     (task / "task.toml").write_text(
         f'version = "1.0"\n\n[task]\nname = "silent-errors/{spec["id"]}"\n'
         f'description = "{spec.get("description", "")}"\n\n'

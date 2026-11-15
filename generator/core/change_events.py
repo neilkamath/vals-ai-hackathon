@@ -97,7 +97,8 @@ class DuplicateRetries:
     rate: float
     clue: str = "etl_script"
     trap_id = "duplicate_retries"
-    keywords = ["duplicate", "retry", "retries", "twice", "double", "request_id", "re-sent", "resent"]
+    keywords = ["retry", "retries", "request_id", "re-sent", "resent", "duplicate purchase", "duplicate event",
+                "duplicate checkout", "duplicate order", "duplicated purchase", "duplicated event"]
 
     def apply(self, tables, rng):
         ev = tables["events"]
@@ -148,7 +149,7 @@ class EventRename:
     new: str = "order_placed"
     clue: str = "migration_sql"
     trap_id = "event_rename"
-    keywords = ["rename", "renamed", "order_placed", "event name", "event_type", "new name"]
+    keywords = ["renamed", "order_placed", "event name", "event type was", "event_type was", "new event name"]
 
     def apply(self, tables, rng):
         for e in tables["events"]:
