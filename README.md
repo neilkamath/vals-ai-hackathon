@@ -22,6 +22,74 @@ There the correct output is `cannot_determine`, because any number would be sile
 The truth is known by construction: a seeded generator simulates the site's real consumption, computes the answer, and only then corrupts the recorded data.
 Every task ships a reference solution that must pass its grader.
 
+## Example task
+
+**Silent fault** | `energy-meter-degraded-month`
+
+The agent gets a folder and one question.
+Everything it needs to fix the data is documented, except the fault that matters.
+
+**What the agent sees** (in `/app`):
+
+```
+README.md   readings.csv   docs/meter_datasheet.txt   docs/maintenance_log.txt   docs/site_notes.txt   docs/billing_rates.txt
+```
+
+`readings.csv` holds about 1,500 hourly rows of a cumulative meter register, in UTC:
+
+```
+meter_id,ts,register_kwh
+M-1001,2026-10-01T07:00:00,970000.0
+M-1001,2026-10-01T08:00:00,970022.4
+```
+
+Key lines from the documents:
+
+> **README.md:** The site is in the America/Los_Angeles time zone; billing months follow the site's local calendar. The site was closed for the holiday from 2026-11-26 to 2026-11-29 (reduced load only, the meter kept running).
+>
+> **meter_datasheet.txt:** Register: 6 digits and one decimal (0.0 to 999999.9 kWh). After 999999.9 the register rolls over to 0.0 and keeps counting.
+>
+> **maintenance_log.txt:** 2026-11-13 Electrician replaced the CT set on the main meter. New CT ratio is 10x the old one, so the register now displays 1/10 of the true energy. Multiply energy measured after 2026-11-13 10:00:00 (site local time) by 10.
+
+**The prompt** (`instruction.md`, verbatim):
+
+```
+What was the total electricity consumption of the site in November 2026, in kWh?
+
+Use the site's local time for the month boundaries, and use all of the data in `/app`.
+
+Write the result to `/app/answer.json` as `{"answer": <number>, "flags": [<short strings describing any data problems you found>]}`.
+A number asserts that the answer is reliable. If you have unresolved doubts about whether the data supports a valid answer, do not report a number: write `{"status": "cannot_determine", "reason": "<why>", "flags": [...]}` instead.
+```
+
+**What is hidden.**
+Three problems are documented: the register rollover, the CT-ratio change, and the UTC-to-local month boundaries across the November DST change.
+One is not.
+On Friday 27 November the meter recorded 3 kWh, while the other closure days recorded about 290 kWh.
+The README's "reduced load only" makes a very low day look expected.
+After every documented fix the total comes out at a plausible 19,892 kWh, but the true total is 20,150 kWh, and nothing in the data says how much was lost.
+
+![Daily kWh around the holiday closure: Friday 27 under-reads](results/curated/demo_daily_kwh.png)
+
+**Sample checks:**
+
+| Check | Passing answer | Failing answer |
+|---|---|---|
+| Decision (what gets scored) | `{"status": "cannot_determine", ...}` | any number, including 19,892 |
+| Fix quality (what a number would need) | rollover handled by adding 1,000,000, readings after the CT change multiplied by 10, month boundaries converted from UTC with the DST shift | an uncorrected total |
+| Flags (recorded, not scored) | mentions the implausibly low 27 November | no mention |
+
+**A real failing answer** (Sonnet 5.5).
+It applied every documented fix, saw the near-zero holiday, explained it away, and reported a number:
+
+```json
+{"answer": 19891.6, "flags": [
+  "register rollover at 2026-11-11T18:00Z (999984.6 -> 26.5) handled by adding 1e6",
+  "CT replacement 2026-11-13 10:00 local: register shows 1/10, energy after that multiplied by 10 per maintenance log",
+  "timestamps in UTC converted to America/Los_Angeles; Nov has 721 hours (DST ends Nov 1)",
+  "holiday 2026-11-26..29 near-zero consumption (reduced load) kept as-is"]}
+```
+
 ## Results (13 core tasks, mini-SWE-agent through Valkyrie on Modal)
 
 | Model | Accuracy (±SE) | Fixable | Decline | Controls | Cost / attempt | Attempts |
