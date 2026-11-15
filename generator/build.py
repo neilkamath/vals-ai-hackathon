@@ -21,6 +21,8 @@ def build_one(spec_path, out_root):
     wp = dict(spec["world_params"])
     if "window_end" in spec:
         wp["window_end"] = spec["window_end"]
+    if "expected_status" in spec:
+        wp["expected_status"] = spec["expected_status"]
     world = WORLDS[spec["world"]](spec["seed"], wp)
     events = [change_events.build_event(e) for e in spec["change_events"]]
     tables, files = Recorder(world, events, spec["seed"]).record()
@@ -29,6 +31,18 @@ def build_one(spec_path, out_root):
     tol_rel, tol_abs = spec.get("tolerance_rel", 0), spec.get("tolerance_abs", 0)
     tol = max(tol_rel * abs(truth), tol_abs)
     clean = spec.get("expected_traps") == []  # trap-free question (paired clean task)
+    status = spec.get("expected_status")
+    if status:
+        n = {"control": 0, "treatment": 0}
+        for a in tables["assignments"]:
+            n[a["arm"]] += 1
+        chi2 = (n["treatment"] - n["control"]) ** 2 / (n["treatment"] + n["control"])
+        assert chi2 > 30, f"{spec['id']}: split is not skewed enough (chi2={chi2:.1f})"
+        assert abs(naive - truth) > tol, f"{spec['id']}: biased lift {naive} is close to the clean lift {truth}"
+        expected = {"expected_status": status, "traps": [{"id": e.trap_id, "keywords": e.keywords} for e in events]}
+        task_writer.write(spec, files, expected, world.solve_code(events), out_root)
+        print(f"built {spec['id']}: expected_status={status} split={n} chi2={chi2:.0f} biased_lift={naive} clean_lift={truth}")
+        return
     if clean:
         assert abs(naive - truth) <= tol, f"{spec['id']}: window is not clean (naive={naive} truth={truth})"
     else:

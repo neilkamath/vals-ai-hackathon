@@ -1,6 +1,6 @@
 # Checkout experiment export
 
-Test of a new checkout flow. Users are randomly assigned to `control` or `treatment`.
+Test of a new checkout flow. Users are randomly assigned to `control` or `treatment`, 50/50.
 
 ## assignments.csv
 - `user_id`, `arm`, `assigned_at` (date of assignment)

@@ -186,7 +186,36 @@ class EventRename:
                 f"        r['event_type'] = '{self.old}'")
 
 
-REGISTRY = {"unit_change": UnitChange, "sticky_reassignment": StickyReassignment,
+@dataclass
+class SplitSkew:
+    """A bucketing bug silently dropped assignment rows for treatment users who never purchased.
+
+    The design is 50/50, so the recorded split is skewed (sample ratio mismatch) and any lift
+    computed from it is biased. No file explains this; the evidence is the data vs the documented design.
+    """
+    frac_drop: float
+    clue: str = "none"
+    trap_id = "split_skew"
+    keywords = ["sample ratio", "srm", "50/50", "imbalance", "ratio mismatch", "uneven", "skew", "not random",
+                "randomization", "randomisation"]
+
+    def apply(self, tables, rng):
+        buyers = {e["user_id"] for e in tables["events"] if e["event_type"] == "checkout_complete"}
+        tables["assignments"] = [a for a in tables["assignments"]
+                                 if not (a["arm"] == "treatment" and a["user_id"] not in buyers
+                                         and rng.random() < self.frac_drop)]
+
+    def clue_files(self, kind):
+        return {}
+
+    def flag_text(self):
+        return "sample ratio mismatch: uneven split vs the documented 50/50 design"
+
+    def undo_code(self):
+        return "pass"
+
+
+REGISTRY = {"split_skew": SplitSkew, "unit_change": UnitChange, "sticky_reassignment": StickyReassignment,
             "duplicate_retries": DuplicateRetries, "event_rename": EventRename}
 
 

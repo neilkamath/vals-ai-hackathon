@@ -1,0 +1,25 @@
+id = "exp-checkout-srm"
+world = "experiment"
+seed = 1
+description = "Invalid experiment: a bucketing bug silently skewed the split. No file says so. Correct output is cannot_determine."
+difficulty = "hard-unanswerable"
+question = """In the checkout experiment, what was the lift in revenue per user (treatment minus control, in USD)?
+
+Revenue per user is the total revenue from completed purchases divided by the number of users assigned to that arm, including users with no purchases. Use all of the data in `/app`."""
+tolerance_abs = 0.01
+clue = "none"
+expected_status = "cannot_determine"
+
+[world_params]
+n_users = 3000
+start = "2026-02-16"
+days = 42
+base_rate = 0.03
+lift = 1.15
+repeat_rate = 0.06
+whale_rate = 0.003
+
+[[change_events]]
+type = "split_skew"
+frac_drop = 0.5
+clue = "none"
