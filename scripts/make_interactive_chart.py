@@ -9,7 +9,8 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-LAB = {"Haiku 4.5": "Anthropic", "Sonnet 5.5": "Anthropic", "Opus 5.5": "Anthropic", "gpt-5.2": "OpenAI", "gpt-5.4": "OpenAI"}
+LAB = {"Haiku 4.5": "Anthropic", "Sonnet 5.5": "Anthropic", "Opus 5.5": "Anthropic", "gpt-5.2": "OpenAI", "gpt-5.4": "OpenAI",
+       "gpt-5.5": "OpenAI", "Fable 5.2": "Anthropic"}
 
 
 def main():
@@ -20,9 +21,11 @@ def main():
                      "fix": float(r["fixable"]), "dec": float(r["decline"]), "ctl": float(r["controls"]),
                      "cost": float(r["avg_cost_per_attempt_usd"]), "secs": float(r["avg_duration_s"]), "calls": float(r["avg_model_calls"]),
                      "n": int(r["attempts"]), "tasks": int(r["tasks_covered"])})
-    best = max((d for d in data if d["name"] in ("Opus 5.5", "Sonnet 5.5", "gpt-5.4")), key=lambda d: d["dec"])
-    headline = (f"<b>Frontier models fix the data, then fail to refuse.</b> "
-                f"On tasks where the honest answer is to decline, the best model ({best['name']}) passes only {best['dec'] * 100:.0f}%.")
+    by = {d["name"]: d for d in data}
+    best = max(data, key=lambda d: d["dec"])
+    headline = (f"<b>Models fix the data, then often fail to refuse.</b> "
+                f"On tasks where the honest answer is to decline, the best model ({best['name']}) passes {best['dec'] * 100:.0f}%, "
+                f"while gpt-5.5 fixes every documented problem and passes {by['gpt-5.5']['dec'] * 100:.0f}%.")
     out = ROOT / "docs"
     out.mkdir(exist_ok=True)
     (out / "index.html").write_text(TEMPLATE.replace("__DATA__", json.dumps(data)).replace("__HEADLINE__", headline))
@@ -68,8 +71,8 @@ svg{display:block;width:100%;height:auto} text{font-family:"JetBrains Mono",ui-m
   <div class="hl">__HEADLINE__</div>
   <div class="bar"><button class="chip" id="tf" aria-pressed="true"><i></i>Frontier</button><button class="chip" id="tl" aria-pressed="false"><i></i>Log scale</button>
     <span class="sp"></span><div class="leg"><span><i class="dot" style="background:var(--ant)"></i>Anthropic</span><span><i class="dot" style="background:var(--oai)"></i>OpenAI</span></div></div>
-  <div id="plot"><svg id="svg" viewBox="0 0 1060 600" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Accuracy against cost per attempt for five models"></svg><div class="tip" id="tip"></div></div>
-  <div class="note">Hover a model for details. Accuracy = mean pass rate over the 13 core tasks (5 fixable, 2 clean controls, 6 where the honest answer is to decline); error bars are &plusmn;1 SE over tasks. Cost is measured per attempt from agent logs. Frontier = no cheaper model scores higher. Small samples: treat differences as signals, not rankings.</div>
+  <div id="plot"><svg id="svg" viewBox="0 0 1060 600" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Accuracy against cost per attempt for seven models"></svg><div class="tip" id="tip"></div></div>
+  <div class="note">Hover a model for details. Accuracy = mean pass rate over the 13 core tasks (5 fixable, 2 clean controls, 6 where the honest answer is to decline); error bars are &plusmn;1 SE over tasks. Cost is measured per attempt from agent logs (Fable 5.2 is estimated from logged token usage at list price). Frontier = no cheaper model scores higher. Small samples: treat differences as signals, not rankings.</div>
 </div>
 <script>
 const DATA = __DATA__;
@@ -98,7 +101,7 @@ function render(){
   const lab=(t,x,y,a,fill,size)=>{const e=el("text",{x,y,"font-size":size||11,fill:fill||"#8b949e","text-anchor":a||"start"},svg);e.textContent=t;return e};
   lab("EFFICIENT",M.l+14,M.t+20,"start","#3fb95099"); lab("INEFFICIENT",W-M.r-14,H-M.b-14,"end","#f8514999");
   for(let v=Math.ceil(y0*10)/10; v<=y1+1e-9; v+=0.1){const y=fy(v);el("line",{x1:M.l,x2:W-M.r,y1:y,y2:y,stroke:"#21262d"},svg);lab(Math.round(v*100)+"%",M.l-10,y+4,"end")}
-  const ticks=state.log?[0.05,0.07,0.10,0.14,0.20].filter(t=>t>=x0&&t<=x1):Array.from({length:8},(_,i)=>i*0.02).filter(t=>t<=x1);
+  const ticks=state.log?[0.05,0.07,0.10,0.14,0.20,0.30].filter(t=>t>=x0&&t<=x1):Array.from({length:30},(_,i)=>i*(x1>0.3?0.1:0.02)).filter(t=>t<=x1);
   for(const t of ticks){const x=fx(t);el("line",{x1:x,x2:x,y1:H-M.b,y2:H-M.b+5,stroke:"#484f58"},svg);lab("$"+t.toFixed(2),x,H-M.b+22,"middle")}
   el("line",{x1:M.l,x2:W-M.r,y1:H-M.b,y2:H-M.b,stroke:"#484f58"},svg);
   el("line",{x1:M.l,x2:W-M.r,y1:fy(Math.max(...DATA.map(d=>d.acc))),y2:fy(Math.max(...DATA.map(d=>d.acc))),stroke:"#6e7681","stroke-dasharray":"3 5"},svg);

@@ -14,8 +14,8 @@ The trick came from leaving an extra hidden error undocumented. Result: the best
 
 Tradeoffs/Limitations: synthetic data over public and not reviewed by energy experts, small samples for budgeting, single harness, and no human baseline. These are acceptable given a hackathon format; of course more compute + research would solidify this finding more.
 
-**TLDR: Frontier models fix the data, then fail to refuse.**
-On tasks where the honest answer is to decline, the best model (Opus 5.5) passes 42%.
+**TLDR: Frontier models fix the data, then often fail to refuse.**
+On tasks where the honest answer is to decline, the best model (Opus 5.5) passes 73%, and OpenAI's gpt-5.5 fixes every documented problem yet passes only 10%.
 
 ## What it tests
 
@@ -103,19 +103,23 @@ It applied every documented fix, saw the near-zero holiday, explained it away, a
 
 ## Results (13 core tasks, mini-SWE-agent through Valkyrie on Modal)
 
-[![Accuracy vs cost per attempt for five models on the 13 core tasks. Click for the interactive version.](results/curated/cost_vs_accuracy.png)](https://neilkamath.github.io/vals-ai-hackathon/)
+[![Accuracy vs cost per attempt for seven models on the 13 core tasks. Click for the interactive version.](results/curated/cost_vs_accuracy.png)](https://neilkamath.github.io/vals-ai-hackathon/)
 
 [Open the interactive chart](https://neilkamath.github.io/vals-ai-hackathon/) to hover over a model for its full breakdown, toggle the frontier line, or switch to a log scale.
 
 | Model | Accuracy (±SE) | Fixable | Decline | Controls | Cost / attempt | Attempts |
 |---|---|---|---|---|---|---|
-| Opus 5.5 | 73.1% (±12.2) | 100% | 42% | 100% | $0.104 | 16 |
-| Sonnet 5.5 | 69.2% (±12.1) | 100% | 33% | 100% | $0.059 | 18 |
-| gpt-5.4 | 42.3% (±13.7) | 70% | 17% | 50% | $0.076 | 18 |
-| gpt-5.2 | 15.4% (±10.4) | 20% | 0% | 50% | $0.064 | 13 |
-| Haiku 4.5 | 7.7% (±7.7) | 20% | 0% | 0% | $0.120 | 13 |
+| Opus 5.5 | 87.4% (±6.3) | 100% | 72.6% | 100% | $0.110 | 81 |
+| Fable 5.2 | 78.5% (±10.5) | 100% | 53.3% | 100% | $0.48 (estimated) | 65 |
+| Sonnet 5.5 | 74.4% (±10.1) | 100% | 44.4% | 100% | $0.060 | 83 |
+| gpt-5.5 | 58.5% (±13.7) | 100% | 10.0% | 100% | $0.187 | 65 |
+| gpt-5.4 | 40.7% (±10.7) | 69.5% | 10.7% | 58% | $0.075 | 83 |
+| Haiku 4.5 | 14.1% (±8.0) | 23% | 0% | 33% | $0.144 | 78 |
+| gpt-5.2 | 14.1% (±8.8) | 17% | 0% | 50% | $0.065 | 78 |
 
-Accuracy is the mean pass rate over the 13 tasks, with 1 to 3 attempts per task and model:
+Fable 5.2 was run with cost tracking off, so its cost per attempt is estimated from the logged token usage at an assumed list price of $8 / $40 per million input / output tokens (cache reads at 0.1x and cache writes at 1.25x the input price; see `scripts/estimate_fable_cost.py`).
+
+Accuracy is the mean pass rate over the 13 tasks, with 5 to 7 attempts per task and model:
 
 ```
 accuracy = (1 / 13) * sum over the 13 tasks of [ passes on that task / attempts on that task ]
@@ -128,9 +132,12 @@ Opus and Sonnet overlap within noise, so we treat them as tied.
 
 Findings in brief:
 
-- Fixing documented problems is easy for frontier models; declining on an undocumented fault is hard.
-- Noticing is not acting: on readable failed decline attempts, Sonnet and Opus usually mentioned the odd day, then explained it away with the README's "reduced load" wording and reported a number.
-- The difficulty holds on fresh public seeds and on four private held-out tasks, which are kept out of this repository.
+- Fixing documented problems is easy for the strongest models: Opus, Fable, Sonnet and gpt-5.5 all pass every fixable task.
+- Declining on an undocumented fault is hard, and it separates the models: Opus passes 73% of decline tasks, Fable 53%, Sonnet 44%, and gpt-5.5, gpt-5.4, Haiku and gpt-5.2 11% or less.
+- gpt-5.5 is the clearest case of fixing without refusing: it passes every fixable task and every clean control, and passes 10% of decline tasks.
+- Noticing is not acting: in the first batch of runs we read, Sonnet and Opus usually mentioned the odd day, then explained it away with the README's "reduced load" wording and reported a number.
+- The hardest fault task for the best model is the example above, `energy-meter-degraded-month`, which Opus passes in 2 of 7 attempts.
+- The difficulty holds on fresh public seeds and on four private held-out tasks, which are kept out of this repository (gpt-5.5 and Fable 5.2 were not run on them).
 
 The full results page (cost vs accuracy chart, leaderboard, example walkthrough, method and caveats) is built locally with `python3 scripts/make_cost_accuracy_page.py`, which writes `results/draft/index.html`.
 Curated tables and charts are in `results/curated/`.
@@ -168,7 +175,7 @@ Some results were recorded on earlier pinned versions containing the same task d
 
 ## Run IDs
 
-Valkyrie run IDs behind the core results:
+Valkyrie run IDs behind the core results (first batch):
 
 - Opus 5.5: `79e782c2-c232-48d5-9cec-cd790cb91e06`, `b3189fb9-4583-47f5-966d-be1574e82178`, `d1067a8e-ad62-4f4b-be51-292a47e628aa`, `e9c02e8c-0bc3-4f5e-81b7-3b498453e691`, `ebb29180-c9e3-4da0-96ef-f16c6f3a091b`
 - Sonnet 5.5: `1615704a-f4fc-46d2-86a9-1ddd6106e7c8`, `4a7ce789-a78f-4b20-9025-bcf4e8f37170`, `5ad65fc9-4e00-415b-8c94-264311eb2947`, `8eab20ef-3802-4a22-ae06-18360184bf01`, `9b84402e-aee5-4706-a15c-78239edd8de0`, `e88a099b-95be-4bb0-a987-64ca61ae5e4a`
@@ -178,10 +185,21 @@ Valkyrie run IDs behind the core results:
 
 Some of these runs also include tasks outside the core set; only core-task attempts count toward the table above.
 
+Additional runs added later, five full 13-task runs per model (included in the table above):
+
+- Opus 5.5: `f8f0e145-845f-4867-bc83-abdadf221b9f`, `28e6314e-06f7-434e-8dac-8823f26cce48`, `aa15c0ec-3906-4be7-95b6-a5d8c8b6522a`, `6797cfbd-adcb-4dd5-93d5-568504a7a90c`, `500d2e50-6671-4db6-8eb1-68dca20d6a66`
+- Fable 5.2: `0e37d5fd-42bf-4935-a7d8-8df2252e4994`, `3a0c0701-8ba1-474d-a4a9-3ffbd59f921e`, `9a393cd7-c475-467b-b90a-0fee6d7ee70b`, `22b8658a-2cd3-440e-80e2-067bc00783fa`, `fe863e6c-3279-4f4d-add2-8bfa9384abbc`
+- Sonnet 5.5: `c0112343-12bf-478f-a35e-1aed8ea7a0a8`, `27346320-8571-463a-a3f2-ab4a74451978`, `7f43e648-2c71-421b-9984-4b34156b0f03`, `199e82a8-0714-4f49-8e56-ab3e1c6b2872`, `81046271-9635-4c6f-aaa6-aa2e7b7be744`
+- gpt-5.5: `e4ec43e5-aad7-495c-8b3e-627fe4d214b7`, `8e6d5a6a-44c0-42ea-8fe4-3ea3b4c3a7cd`, `bb04341c-9867-445b-8fe5-2345d94c49dd`, `8af8cadc-5885-4313-a3b9-c46deac93f2d`, `6a7a7581-6c73-469e-bc8d-285a09e8591b`
+- gpt-5.4: `20b71f90-68b1-497e-8b4e-51640f1b6f6b`, `2bd26066-e7ee-4f8f-91da-fb9151d0dafb`, `32381583-5e51-4db0-b5d3-c3046e5bfea2`, `a79f9872-429f-4550-a741-269657ab0cf2`, `2ad92932-6a92-4698-8d9c-cfb2a0ef008a`
+- Haiku 4.5: `4b54b392-658a-4686-b0db-dadf4de1e370`, `ed66e4fd-6ba7-4442-af18-b168365f8a41`, `85010da3-f925-43a8-a6d9-2cc4efa374fd`, `8d8b5b4f-e04d-44c4-9bfd-d6281bf36848`, `6e8be2c3-0e0d-4fc5-ac29-a3ed7bcbb3d9`
+- gpt-5.2: `497f1715-1091-45ca-9173-68e3f205ddf0`, `7f876603-ae11-4d94-bb2c-e8014bb0c95b`, `3998653c-e463-4158-ab9b-b40938e8c80b`, `ffca3a61-9857-4180-a05f-efeab31a0b12`, `ccf25913-2492-42b5-b9c1-6e52c681faa2`
+
 ## Caveats
 
 - The data is synthetic and modeled on commercial metering; it remains unreviewed by anyone from the energy industry.
-- Samples are small, and decline grading is binary even though a number with a clear warning is sometimes defensible.
+- Samples are modest (5 to 7 attempts per task and model), and decline grading is binary even though a number with a clear warning is sometimes defensible.
+- Early results with 1 to 3 attempts per task put the best model's decline rate at 42%. Adding more attempts raised it to 73%, so small samples understated how often the best model declines.
 - One harness only, and no human baseline was measured.
 
 ## Running it through Valkyrie

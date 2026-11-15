@@ -44,12 +44,14 @@ PRIVATE_MAP = {E + "degraded-month-p1": E + "degraded-month", E + "degraded-mont
 SKIP_STAGES = ("5-stacked", "fable-probe")
 
 MODEL = {"anthropic/claude-opus-5-5": "Opus 5.5", "anthropic/claude-sonnet-5-5": "Sonnet 5.5", "openai/gpt-5.4": "gpt-5.4",
-         "openai/gpt-5.2": "gpt-5.2", "anthropic/claude-haiku-4-5": "Haiku 4.5"}
-ORDER = ["Haiku 4.5", "gpt-5.2", "gpt-5.4", "Sonnet 5.5", "Opus 5.5"]
-FRONTIER = ["gpt-5.4", "Sonnet 5.5", "Opus 5.5"]
-LAB = {"Haiku 4.5": "Anthropic", "Sonnet 5.5": "Anthropic", "Opus 5.5": "Anthropic", "gpt-5.2": "OpenAI", "gpt-5.4": "OpenAI"}
+         "openai/gpt-5.2": "gpt-5.2", "anthropic/claude-haiku-4-5": "Haiku 4.5",
+         "anthropic/claude-fable-5-2": "Fable 5.2", "openai/gpt-5.5": "gpt-5.5"}
+ORDER = ["Haiku 4.5", "gpt-5.2", "gpt-5.4", "gpt-5.5", "Sonnet 5.5", "Opus 5.5", "Fable 5.2"]
+FRONTIER = ["gpt-5.5", "Sonnet 5.5", "Opus 5.5", "Fable 5.2"]
+LAB = {"Haiku 4.5": "Anthropic", "Sonnet 5.5": "Anthropic", "Opus 5.5": "Anthropic", "gpt-5.2": "OpenAI", "gpt-5.4": "OpenAI",
+       "Fable 5.2": "Anthropic", "gpt-5.5": "OpenAI"}
 LAB_COLOR = {"Anthropic": "#c4623a", "OpenAI": "#2f8f6f"}
-MARK = {"Haiku 4.5": "o", "gpt-5.2": "o", "Sonnet 5.5": "s", "gpt-5.4": "s", "Opus 5.5": "D"}
+MARK = {"Haiku 4.5": "o", "gpt-5.2": "o", "Sonnet 5.5": "s", "gpt-5.4": "s", "Opus 5.5": "D", "Fable 5.2": "D", "gpt-5.5": "D"}
 AUTO = {"detected_but_reported_number": "noticed_but_computed_anyway", "never_detected": "never_noticed"}
 
 
@@ -223,7 +225,7 @@ def main():
 
     # 5. difficulty ladder
     fig, ax = plt.subplots(figsize=(7.8, 5))
-    styles = {"Haiku 4.5": ":", "gpt-5.2": "--", "gpt-5.4": "-.", "Sonnet 5.5": "-", "Opus 5.5": "-"}
+    styles = {"Haiku 4.5": ":", "gpt-5.2": "--", "gpt-5.4": "-.", "gpt-5.5": "-.", "Sonnet 5.5": "-", "Opus 5.5": "-", "Fable 5.2": "--"}
     for k, m in enumerate(ORDER):
         ys = [task_rates(pub, m, [t]).mean() for _, t in LADDER]
         ax.plot([n + (k - 2) * 0.045 for n, _ in LADDER], ys, "o", linestyle=styles[m], label=m, color=colors[m], lw=2, ms=8)
