@@ -274,6 +274,7 @@ REGISTRY = {"bot_traffic": BotTraffic, "split_skew": SplitSkew, "unit_change": U
 
 def build_event(d):
     from .meter_events import REGISTRY as MR
+    from .stream_events import REGISTRY as SR
     d = dict(d)
     t = d.pop("type")
-    return {**REGISTRY, **MR}[t](**d)
+    return {**REGISTRY, **MR, **SR}[t](**d)

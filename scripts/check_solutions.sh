@@ -8,6 +8,12 @@ for t in "$root"/tasks/*/; do
   id=$(basename "$t"); w=$(mktemp -d)
   mkdir -p "$w/app" "$w/logs/verifier" "$w/tests"
   cp -r "$t"environment/data/. "$w/app/"; cp -r "$t"tests/. "$w/tests/"
+  # tasks served through a tool: install it into a temp bin dir
+  if [ -d "$t"environment/service ]; then
+    mkdir -p "$w/service" "$w/bin"; cp -r "$t"environment/service/. "$w/service/"
+    cp "$w/service/meterctl" "$w/bin/meterctl"; chmod +x "$w/bin/meterctl"
+    export METER_DIR="$w/service" METER_STATE="$w/meter.state" PATH="$w/bin:$PATH"
+  fi
   # rewrite absolute container paths to the temp sandbox
   sed "s#/app#$w/app#g" "$t"solution/solve.sh | bash
   sed "s#/app#$w/app#g; s#/tests#$w/tests#g; s#/logs#$w/logs#g" "$t"tests/test.sh > "$w/test_local.sh"

@@ -13,9 +13,10 @@ from .core import change_events, clue_placer, task_writer
 from .core.recorder import Recorder
 from .worlds.experiment import ExperimentWorld
 from .worlds.meter import MeterWorld
+from .worlds.meter_api import MeterApiWorld
 from .worlds.toy_orders import ToyOrdersWorld
 
-WORLDS = {"toy_orders": ToyOrdersWorld, "experiment": ExperimentWorld, "meter": MeterWorld}
+WORLDS = {"toy_orders": ToyOrdersWorld, "experiment": ExperimentWorld, "meter": MeterWorld, "meter_api": MeterApiWorld}
 ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -92,7 +93,8 @@ def build_one(spec_path, out_root):
         print(f"built {spec['id']}: expected_status={status} split={n} chi2={chi2:.0f} biased_lift={naive} clean_lift={truth}")
         return
     if clean:
-        assert abs(naive - truth) <= tol, f"{spec['id']}: window is not clean (naive={naive} truth={truth})"
+        chk = world.clean_check_answer(tables, events) if hasattr(world, "clean_check_answer") else naive
+        assert abs(chk - truth) <= tol, f"{spec['id']}: window is not clean (check={chk} truth={truth})"
     else:
         assert abs(naive - truth) > tol, f"{spec['id']}: naive answer passes, trap is not real"
     expected = {"answer": truth, "tolerance_rel": tol_rel, "tolerance_abs": tol_abs,

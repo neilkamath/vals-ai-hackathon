@@ -32,11 +32,21 @@ def write(spec, files, expected, solve_py, out_root):
     shutil.rmtree(task, ignore_errors=True)
     for d in ("environment/data", "tests", "solution"):
         (task / d).mkdir(parents=True, exist_ok=True)
+    service = {k: v for k, v in files.items() if k.startswith("service/")}
+    files = {k: v for k, v in files.items() if not k.startswith("service/")}
+    for name, text in service.items():
+        f = task / "environment" / name
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(text)
     for name, text in files.items():
         f = task / "environment/data" / name
         f.parent.mkdir(parents=True, exist_ok=True)
         f.write_text(text)
-    (task / "environment/Dockerfile").write_text(DOCKERFILE)
+    docker = DOCKERFILE
+    if service:
+        docker += ("COPY service/ /opt/meter/\nRUN chmod +x /opt/meter/meterctl && "
+                   "ln -s /opt/meter/meterctl /usr/local/bin/meterctl\n")
+    (task / "environment/Dockerfile").write_text(docker)
     (task / "instruction.md").write_text(spec["question"].strip() + "\n" + (("\n" + spec["instruction_suffix"].strip() + "\n") if spec.get("instruction_suffix") else "") + ANSWER_FORMAT + ABSTAIN[spec.get("abstain_guidance", "explicit")])
     (task / "task.toml").write_text(
         f'version = "1.0"\n\n[task]\nname = "silent-errors/{spec["id"]}"\n'

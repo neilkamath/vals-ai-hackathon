@@ -1,0 +1,35 @@
+id = "energy-stream-november"
+world = "meter_api"
+seed = 31
+description = "Streamed intake: paged meter API with overlapping pages, rate limiting, a mid-stream format change (Wh and epoch time), a CT-ratio change and a local month over UTC records."
+difficulty = "very-hard"
+question = """What was the total electricity consumption of the site in November 2026, in kWh?
+
+Use the site's local time for the month boundaries, and use all of the data the meter server provides."""
+tolerance_rel = 0.0004
+clue = "mixed"
+window_start = "2026-11-01T00:00:00"
+window_end = "2026-12-01T00:00:00"
+
+[world_params]
+start_local = "2026-10-01T00:00:00"
+end_local = "2026-12-02T00:00:00"
+start_register = 970000.0
+closure_start = "2026-11-26"
+closure_end = "2026-11-29"
+
+[[change_events]]
+type = "utc_timestamps"
+clue = "none"
+
+[[change_events]]
+type = "stream_multiplier"
+cutover = "2026-11-13T10:00:00"
+factor = 10
+clue = "maintenance_log"
+
+[[change_events]]
+type = "stream_schema_switch"
+at = "2026-11-09T00:00:00"
+clue = "none"
+

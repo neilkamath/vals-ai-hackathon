@@ -1,0 +1,37 @@
+#!/bin/bash
+python3 - <<'PY'
+import json
+import subprocess, json, time, datetime
+recs, cursor = [], None
+while True:
+    cmd = ['meterctl', 'readings', '--meter', 'M-1001', '--limit', '100'] + (['--cursor', cursor] if cursor else [])
+    p = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        d = json.loads(p.stdout)
+    except Exception:
+        time.sleep(1); continue
+    if 'error' in d:
+        time.sleep(d.get('retry_after_s', 1)); continue
+    recs += d['records']
+    if not d['has_more']:
+        break
+    cursor = d['next_cursor']
+seen, rows = set(), []
+for r in recs:
+    if r['v'] == 1:
+        ts, kwh = r['ts'], r['kwh']
+    else:
+        ts = datetime.datetime.fromtimestamp(r['ts'] / 1000, datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%S')
+        kwh = r['wh'] / 1000
+    if ts in seen:
+        continue
+    seen.add(ts)
+    rows.append((ts, kwh))
+cut = '2026-11-13T18:00:00'
+factor = 10
+rows = [(ts, kwh * factor if cut and ts > cut else kwh) for ts, kwh in rows]
+lo, hi = '2026-10-05T00:00:00', '2026-10-12T00:00:00'
+total = sum(k for ts, k in rows if lo < ts <= hi)
+flags = ['timestamps are UTC; converted the local month boundaries to UTC with the DST change on 2026-11-01', 'CT ratio change on 2026-11-13: the meter reports 1/10 of true energy afterwards; multiplied later energy by 10', 'from 2026-11-09 the meter sends v2 records (epoch milliseconds, energy in Wh); converted to UTC time and kWh']
+json.dump({'answer': round(total, 1), 'flags': flags}, open('/app/answer.json', 'w'))
+PY

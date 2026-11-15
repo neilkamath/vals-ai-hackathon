@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+import base64, json, os, sys
+
+D = os.environ.get("METER_DIR", "/opt/meter")
+STATE = os.environ.get("METER_STATE", "/tmp/meterctl.state")
+CFG = json.load(open(os.path.join(D, "config.json")))
+HELP = """meterctl: read hourly energy records from the meter server
+
+usage:
+  meterctl meters
+  meterctl readings --meter ID [--cursor C] [--limit N]    (N up to %d, default %d)
+  meterctl docs
+
+readings prints one JSON object per call: {"records": [...], "next_cursor": C or null, "has_more": true/false}
+Pass next_cursor back with --cursor to get the next page. Each page repeats the last record of the previous page.
+The server limits the request rate: a rate-limited call prints {"error": "rate_limited", "retry_after_s": 1}
+and exits with status 3. Call again.
+Run `meterctl docs` for the record format.""" % (CFG["page_max"], CFG["page_max"])
+DOCS = """Record formats
+  v1: {"ts": "<UTC time at the end of the hour, ISO 8601>", "kwh": <energy for that hour in kWh>, "v": 1}
+  v2: {"ts": <UTC epoch milliseconds at the end of the hour>, "wh": <energy for that hour in Wh>, "v": 2}
+Meters on firmware 2.x report v2 records. Records are ordered by time."""
+
+
+def out(obj, code=0):
+    print(json.dumps(obj))
+    sys.exit(code)
+
+
+def main(a):
+    if len(a) < 1 or a[0] in ("-h", "--help", "help"):
+        print(HELP); return
+    if a[0] == "docs":
+        print(DOCS); return
+    if a[0] == "meters":
+        out([{"meter": "M-1001", "site": "main building", "timezone": "America/Los_Angeles"}])
+    if a[0] != "readings":
+        print(HELP); sys.exit(2)
+    opt = {}
+    i = 1
+    while i < len(a):
+        opt[a[i].lstrip("-")] = a[i + 1] if i + 1 < len(a) else ""
+        i += 2
+    if opt.get("meter") != "M-1001":
+        out({"error": "unknown_meter"}, 2)
+    n = int(open(STATE).read()) if os.path.exists(STATE) else 0
+    n += 1
+    open(STATE, "w").write(str(n))
+    if CFG["rate_limit_every"] and n % CFG["rate_limit_every"] == 0:
+        out({"error": "rate_limited", "retry_after_s": 1}, 3)
+    stream = json.load(open(os.path.join(D, "stream.json")))
+    limit = min(int(opt.get("limit", CFG["page_max"])), CFG["page_max"])
+    off = int(base64.b64decode(opt["cursor"]).decode()) if opt.get("cursor") else 0
+    recs = stream[off:off + limit]
+    if off > 0:
+        recs = [stream[off - 1]] + recs
+    more = off + limit < len(stream)
+    out({"records": recs, "next_cursor": base64.b64encode(str(off + limit).encode()).decode() if more else None,
+         "has_more": more})
+
+
+main(sys.argv[1:])

@@ -1,0 +1,6 @@
+Site maintenance log
+
+2026-09-02  Replaced hallway lighting ballasts (building 2).
+2026-10-05  Roof unit 3 filter change.
+2026-11-13  Electrician replaced the CT set on the main meter. New CT ratio is 10x the old one, so the meter now reports 1/10 of the true energy. Multiply energy measured after 2026-11-13 10:00:00 (site local time) by 10.
+2026-11-20  Quarterly inspection, no findings.
