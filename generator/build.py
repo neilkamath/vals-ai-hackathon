@@ -27,6 +27,12 @@ def build_one(spec_path, out_root):
     events = [change_events.build_event(e) for e in spec["change_events"]]
     tables, files = Recorder(world, events, spec["seed"]).record()
     files.update(clue_placer.place(events, world.filler_files()))
+    if "events" in tables:  # id integrity: documented unique ids must really be unique
+        eids = [e["event_id"] for e in tables["events"]]
+        rids = [e["request_id"] for e in tables["events"]]
+        assert len(set(eids)) == len(eids), f"{spec['id']}: duplicate event_id"
+        if not any(e.trap_id == "duplicate_retries" for e in events):
+            assert len(set(rids)) == len(rids), f"{spec['id']}: duplicate request_id without a retries event"
     truth, naive = world.truth(), world.naive_answer(tables)
     tol_rel, tol_abs = spec.get("tolerance_rel", 0), spec.get("tolerance_abs", 0)
     tol = max(tol_rel * abs(truth), tol_abs)

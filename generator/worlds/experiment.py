@@ -85,7 +85,7 @@ class ExperimentWorld(World):
             "Test of a new checkout flow. Users are randomly assigned to `control` or `treatment`, 50/50.\n\n"
             "## assignments.csv\n- `user_id`, `arm`, `assigned_at` (date of assignment)\n\n"
             "## events.csv\n- `event_id`: unique id of the logged event\n"
-            "- `request_id`: id of the originating request\n- `user_id`, `ts` (UTC)\n"
+            "- `request_id`: unique id of the checkout request (each customer action has its own; a customer may make several purchases)\n- `user_id`, `ts` (UTC)\n"
             "- `event_type`: `add_to_cart` or `checkout_complete` (a completed purchase)\n"
             "- `amount`: purchase value in USD (0 for non-purchase events)\n\n"
             "Large orders (over $1,500) come from verified wholesale accounts and are valid.\n")

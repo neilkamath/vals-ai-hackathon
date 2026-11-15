@@ -4,7 +4,7 @@ Each event can (1) corrupt recorded tables, (2) write its buried clue, (3) emit 
 undoes it (reference solution), (4) give the flag text and keywords the grader looks for.
 """
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from . import filler
 
@@ -215,7 +215,57 @@ class SplitSkew:
         return "pass"
 
 
-REGISTRY = {"split_skew": SplitSkew, "unit_change": UnitChange, "sticky_reassignment": StickyReassignment,
+@dataclass
+class BotTraffic:
+    """Automated visitors are assigned (mostly to treatment) and flood the log with cart events.
+
+    No file mentions them. The evidence is per-user activity: humans have at most 4 events on a day,
+    bots 8-12. Excluding them recovers the human-only truth exactly.
+    """
+    n_bots: int
+    treat_frac: float = 0.85
+    per_day_min: int = 8
+    per_day_max: int = 12
+    clue: str = "none"
+    trap_id = "bot_traffic"
+    keywords = ["bot", "crawler", "automated", "non-human", "scraper", "abnormal activity", "inhuman",
+                "excessive events", "extreme event"]
+
+    def apply(self, tables, rng):
+        used = {e["event_id"] for e in tables["events"]} | {e["request_id"] for e in tables["events"]}
+        start = date.fromisoformat(min(a["assigned_at"] for a in tables["assignments"]))
+        end = date.fromisoformat(max(e["ts"][:10] for e in tables["events"]))
+        n_users = len({a["user_id"] for a in tables["assignments"]})
+        for i in range(self.n_bots):
+            uid = f"u{n_users + i:05d}"
+            d0 = start + timedelta(days=rng.randrange(0, 28))
+            tables["assignments"].append({"user_id": uid, "assigned_at": d0.isoformat(),
+                                          "arm": "treatment" if rng.random() < self.treat_frac else "control"})
+            day = d0
+            while day <= end:
+                for _ in range(rng.randint(self.per_day_min, self.per_day_max)):
+                    t = datetime(day.year, day.month, day.day, rng.randint(0, 23), rng.randint(0, 59), rng.randint(0, 59))
+                    tables["events"].append({"event_id": new_id(rng, used), "request_id": new_id(rng, used, "req-"),
+                                             "user_id": uid, "ts": t.strftime(TS), "event_type": "add_to_cart",
+                                             "amount": 0.0})
+                day += timedelta(days=1)
+
+    def clue_files(self, kind):
+        return {}
+
+    def flag_text(self):
+        return "bot-like users with extreme event volume (6 or more events a day) excluded"
+
+    def undo_code(self):
+        return ("_cnt = {}\n"
+                "for r in event_rows:\n"
+                "    _k = (r['user_id'], r['ts'][:10]); _cnt[_k] = _cnt.get(_k, 0) + 1\n"
+                "_bots = {u for (u, d), c in _cnt.items() if c >= 6}\n"
+                "assign_rows = [r for r in assign_rows if r['user_id'] not in _bots]\n"
+                "event_rows = [r for r in event_rows if r['user_id'] not in _bots]")
+
+
+REGISTRY = {"bot_traffic": BotTraffic, "split_skew": SplitSkew, "unit_change": UnitChange, "sticky_reassignment": StickyReassignment,
             "duplicate_retries": DuplicateRetries, "event_rename": EventRename}
 
 
