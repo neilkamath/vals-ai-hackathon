@@ -7,6 +7,7 @@ import random
 
 class World:
     def __init__(self, seed, params):
+        self.seed = seed
         self.rng = random.Random(seed)
         self.params = params
         self.tables = self.simulate()  # clean, true tables

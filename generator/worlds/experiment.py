@@ -7,8 +7,10 @@ request_id) and a few large wholesale orders. Both are valid and must be kept.
 """
 import csv
 import io
+import random
 from datetime import date, datetime, timedelta
 
+from ..core import filler
 from ..core.change_events import TS, new_id
 from ..core.world import World
 
@@ -93,6 +95,17 @@ class ExperimentWorld(World):
         return files
 
     def filler_files(self):
+        base = self._base_filler()
+        n = self.params.get("noise", 0)
+        if n:
+            r = random.Random(f"filler-{self.seed}")
+            base.update(filler.migrations(r, n, skip={40, 42, 43}))
+            base.update(filler.modules(r, n // 2))
+            for ch, mon in (("general", "02"), ("analytics", "03"), ("oncall", "03")):
+                base[f"exports/slack_{ch}_2026-{mon}.txt"] = filler.merge_chat(r, [], 150, mon)
+        return base
+
+    def _base_filler(self):
         return {"pipeline/config.yaml": "queue: checkout-events\nsink: warehouse.events\nbatch_size: 500\nregion: us-west-2\n",
                 "pipeline/requirements.txt": "boto3\npandas\npyyaml\n"}
 

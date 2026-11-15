@@ -6,6 +6,8 @@ undoes it (reference solution), (4) give the flag text and keywords the grader l
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
+from . import filler
+
 TS = "%Y-%m-%dT%H:%M:%S"
 
 
@@ -53,12 +55,14 @@ class StickyReassignment:
     incident: str
     frac: float
     clue: str = "chat_export"
+    noise_lines: int = 0
     trap_id = "reassignment"
     keywords = ["reassign", "re-assign", "re-roll", "reroll", "both arms", "assigned twice",
                 "multiple assignment", "more than one assignment", "first assignment", "duplicate assignment"]
     n_rerolled = 0
 
     def apply(self, tables, rng):
+        self._rng = rng
         add = []
         for a in tables["assignments"]:
             if a["assigned_at"] < self.incident and rng.random() < self.frac:
@@ -69,15 +73,20 @@ class StickyReassignment:
 
     def clue_files(self, kind):
         d = self.incident
-        return {"exports/slack_data-eng_2026-03.txt": (
-            "#data-eng  export 2026-03\n\n"
-            "[Mar 02 10:12] marco: reminder, warehouse backfill finishes tonight\n"
-            "[Mar 03 09:30] dev: who owns the dashboard refresh cron? it skipped twice\n"
-            f"[{d[5:7]}/{d[8:10]} 16:40] priya: ok the config incident is sorted. I re-ran the bucketing job and it "
-            f"re-rolled {self.n_rerolled} users who were already in the test.\n"
-            "[same day 16:41] priya: I left the old rows in the assignments table for audit, so those users have two rows now\n"
-            "[same day 16:43] priya: the first assignment is the one they actually experienced, the re-rolled ones never saw the other arm\n"
-            "[Mar 06 11:05] marco: lunch?\n")}
+        day = int(d[8:10])
+        tag = f"[{d[5:7]}/{d[8:10]}"
+        clue = [((day, 16, 40), f"{tag} 16:40] priya: ok the config incident is sorted. I re-ran the bucketing job and it "
+                                f"re-rolled {self.n_rerolled} users who were already in the test."),
+                ((day, 16, 41), f"{tag} 16:41] priya: I left the old rows in the assignments table for audit, so those users have two rows now"),
+                ((day, 16, 43), f"{tag} 16:43] priya: the first assignment is the one they actually experienced, the re-rolled ones never saw the other arm")]
+        if self.noise_lines:
+            text = "#data-eng  export 2026-03\n\n" + filler.merge_chat(self._rng, clue, self.noise_lines, d[5:7])
+        else:
+            text = ("#data-eng  export 2026-03\n\n"
+                    "[03/02 10:12] marco: reminder, warehouse backfill finishes tonight\n"
+                    "[03/03 09:30] dev: who owns the dashboard refresh cron? it skipped twice\n"
+                    + "\n".join(t for _, t in clue) + "\n[03/06 11:05] marco: lunch?\n")
+        return {"exports/slack_data-eng_2026-03.txt": text}
 
     def flag_text(self):
         return (f"{self.n_rerolled} users were re-assigned to the other arm on {self.incident} "
@@ -96,6 +105,7 @@ class DuplicateRetries:
     from_date: str
     rate: float
     clue: str = "etl_script"
+    pad: int = 0
     trap_id = "duplicate_retries"
     keywords = ["retry", "retries", "request_id", "re-sent", "resent", "duplicate purchase", "duplicate event",
                 "duplicate checkout", "duplicate order", "duplicated purchase", "duplicated event"]
@@ -127,7 +137,8 @@ class DuplicateRetries:
             "        sink.write(retry)\n\n\n"
             "def run(queue, sink):\n"
             "    for raw in queue.poll(BATCH_SIZE):\n"
-            "        emit(sink, parse(raw), datetime.datetime.utcnow())\n")}
+            "        emit(sink, parse(raw), datetime.datetime.utcnow())\n"
+            + ("\n\n" + filler.pad_functions(__import__("random").Random(f"pad-{self.from_date}"), self.pad) + "\n" if self.pad else ""))}
 
     def flag_text(self):
         return (f"duplicate purchase events from {self.from_date} (retries re-sent with the same request_id); "
