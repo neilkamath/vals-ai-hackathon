@@ -1,0 +1,36 @@
+id = "energy-meter-october-clean"
+world = "meter"
+seed = 11
+description = "Same files as energy-meter-november, but the question window (an explicit UTC week in early October) is unaffected by every recording problem. Nothing needs fixing."
+difficulty = "paired-clean"
+question = """What was the total electricity consumption of the site between 2026-10-05 00:00 UTC and 2026-10-12 00:00 UTC, in kWh?
+
+Use all of the data in `/app`."""
+tolerance_rel = 0.0004
+clue = "mixed"
+window_start = "2026-10-05T00:00:00"
+window_end = "2026-10-12T00:00:00"
+window_tz = "utc"
+expected_traps = []
+
+[world_params]
+start_local = "2026-10-01T00:00:00"
+end_local = "2026-12-02T00:00:00"
+start_register = 970000.0
+closure_start = "2026-11-26"
+closure_end = "2026-11-29"
+
+[[change_events]]
+type = "utc_timestamps"
+clue = "none"
+
+[[change_events]]
+type = "multiplier_change"
+cutover = "2026-11-13T10:00:00"
+factor = 10
+clue = "maintenance_log"
+
+[[change_events]]
+type = "register_rollover"
+modulus = 1000000.0
+clue = "datasheet"

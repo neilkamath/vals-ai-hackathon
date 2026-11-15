@@ -10,9 +10,10 @@ from pathlib import Path
 from .core import change_events, clue_placer, task_writer
 from .core.recorder import Recorder
 from .worlds.experiment import ExperimentWorld
+from .worlds.meter import MeterWorld
 from .worlds.toy_orders import ToyOrdersWorld
 
-WORLDS = {"toy_orders": ToyOrdersWorld, "experiment": ExperimentWorld}
+WORLDS = {"toy_orders": ToyOrdersWorld, "experiment": ExperimentWorld, "meter": MeterWorld}
 ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -21,12 +22,17 @@ def build_one(spec_path, out_root):
     wp = dict(spec["world_params"])
     if "window_end" in spec:
         wp["window_end"] = spec["window_end"]
+    if "window_start" in spec:
+        wp["window_start"] = spec["window_start"]
+    if "window_tz" in spec:
+        wp["window_tz"] = spec["window_tz"]
     if "expected_status" in spec:
         wp["expected_status"] = spec["expected_status"]
     world = WORLDS[spec["world"]](spec["seed"], wp)
     events = [change_events.build_event(e) for e in spec["change_events"]]
     tables, files = Recorder(world, events, spec["seed"]).record()
     files.update(clue_placer.place(events, world.filler_files()))
+    truth_pre = world.truth()
     if "events" in tables:  # id integrity: documented unique ids must really be unique
         eids = [e["event_id"] for e in tables["events"]]
         rids = [e["request_id"] for e in tables["events"]]
@@ -36,6 +42,15 @@ def build_one(spec_path, out_root):
     if "assignments" in tables and not any(e.trap_id == "reassignment" for e in events):
         uids = [a["user_id"] for a in tables["assignments"]]
         assert len(set(uids)) == len(uids), f"{spec['id']}: duplicate assignment rows without a reassignment event"
+    if hasattr(world, "ablations") and spec.get("expected_traps") != []:
+        full = world.compute(tables, events)
+        assert abs(full - truth_pre) <= max(spec.get("tolerance_rel", 0) * abs(truth_pre), spec.get("tolerance_abs", 0)), \
+            f"{spec['id']}: reference computation {full} disagrees with truth {truth_pre}"
+        tol_pre = max(spec.get("tolerance_rel", 0) * abs(truth_pre), spec.get("tolerance_abs", 0))
+        for name, val in world.ablations(tables, events).items():
+            assert abs(val - truth_pre) > tol_pre, f"{spec['id']}: skipping '{name}' still passes ({val} vs {truth_pre})"
+    if hasattr(world, "validate"):
+        world.validate(tables, events, clean=spec.get("expected_traps") == [])
     truth, naive = world.truth(), world.naive_answer(tables)
     tol_rel, tol_abs = spec.get("tolerance_rel", 0), spec.get("tolerance_abs", 0)
     tol = max(tol_rel * abs(truth), tol_abs)
