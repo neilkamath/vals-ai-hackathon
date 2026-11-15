@@ -33,6 +33,9 @@ def build_one(spec_path, out_root):
         assert len(set(eids)) == len(eids), f"{spec['id']}: duplicate event_id"
         if not any(e.trap_id == "duplicate_retries" for e in events):
             assert len(set(rids)) == len(rids), f"{spec['id']}: duplicate request_id without a retries event"
+    if "assignments" in tables and not any(e.trap_id == "reassignment" for e in events):
+        uids = [a["user_id"] for a in tables["assignments"]]
+        assert len(set(uids)) == len(uids), f"{spec['id']}: duplicate assignment rows without a reassignment event"
     truth, naive = world.truth(), world.naive_answer(tables)
     tol_rel, tol_abs = spec.get("tolerance_rel", 0), spec.get("tolerance_abs", 0)
     tol = max(tol_rel * abs(truth), tol_abs)
