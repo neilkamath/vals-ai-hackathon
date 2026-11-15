@@ -14,8 +14,12 @@ ROOT = Path(__file__).resolve().parent.parent
 RAW = ROOT / "results" / "raw"
 
 
-def sh(*args):
-    return subprocess.run(args, capture_output=True, text=True, timeout=300)
+def sh(*args, timeout=120):
+    try:
+        return subprocess.run(args, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        print("timed out, skipping:", " ".join(args[:4]))
+        return None
 
 
 def cost_calls(run_id, task):

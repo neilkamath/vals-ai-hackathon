@@ -1,6 +1,6 @@
 """Build all tasks from generator/specs/*.toml into tasks/. Fails loudly on any check.
 
-Usage: python3 -m generator.build [--out tasks] [--no-check]
+Usage: python3 -m generator.build [--out tasks] [--specs generator/specs] [--no-check]
 
 Specs in generator/specs/*.toml are the frozen benchmark; generator/specs/dev/ holds development-only specs.
 """
@@ -111,7 +111,8 @@ def build_one(spec_path, out_root):
 
 def main():
     out = Path(sys.argv[sys.argv.index("--out") + 1]) if "--out" in sys.argv else ROOT / "tasks"
-    for p in sorted((ROOT / "generator/specs").glob("*.toml")):
+    specs = Path(sys.argv[sys.argv.index("--specs") + 1]) if "--specs" in sys.argv else ROOT / "generator/specs"
+    for p in sorted(specs.glob("*.toml")):
         build_one(p, out)
     if "--no-check" in sys.argv:
         return

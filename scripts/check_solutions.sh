@@ -4,7 +4,8 @@
 set -u
 root="$(cd "$(dirname "$0")/.." && pwd)"
 fail=0
-for t in "$root"/tasks/*/; do
+tasks_dir="${TASKS_DIR:-$root/tasks}"
+for t in "$tasks_dir"/*/; do
   id=$(basename "$t"); w=$(mktemp -d)
   mkdir -p "$w/app" "$w/logs/verifier" "$w/tests"
   cp -r "$t"environment/data/. "$w/app/"; cp -r "$t"tests/. "$w/tests/"

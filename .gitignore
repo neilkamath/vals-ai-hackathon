@@ -25,3 +25,7 @@ results/manifest.jsonl
 
 # Reference material, not part of the submission
 vals-hacks-bundle/
+
+# Held-out private seeds: tasks and specs stay local
+private_tasks/
+generator/specs_private/
