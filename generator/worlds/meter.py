@@ -180,9 +180,8 @@ class MeterWorld(World):
         ]
         if swap:
             lines[2] = "total, prev, last_id = 0.0, None, rows[0]['meter_id']\nfor r in rows:\n"
-            lines[4] = "    if prev is None:\n        prev = reg\n        continue\n    " + swap.undo_code() + "\n"
-            lines[4] = ("    if prev is None:\n        prev = reg\n        continue\n"
-                        "    if r['meter_id'] != last_id:\n        prev = 0.0\n    last_id = r['meter_id']\n")
+            lines[4] = ("    if r['meter_id'] != last_id:\n        prev = 0.0  # the new meter starts at 0.0\n"
+                        "    last_id = r['meter_id']\n" + lines[4])
         if roll:
             lines.append(f"    {roll.undo_code()}\n")
         if mult:

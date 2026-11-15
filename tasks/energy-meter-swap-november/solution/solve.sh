@@ -8,12 +8,11 @@ for r in rows:
     if prev is None:
         prev = reg
         continue
-    if prev is None:
-        prev = reg
-        continue
     if r['meter_id'] != last_id:
-        prev = 0.0
+        prev = 0.0  # the new meter starts at 0.0
     last_id = r['meter_id']
+    d = reg - prev
+    prev = reg
     if d < 0: d += 1000000.0
     if r['ts'] > '2026-11-13T18:00:00': d *= 10
     if '2026-11-01T07:00:00' < r['ts'] <= '2026-12-01T08:00:00':
