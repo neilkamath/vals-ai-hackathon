@@ -16,6 +16,14 @@ energy-meter-rollover-only,1.0,1.0,1.0,1.0,1.0
 energy-meter-stuck-day,,,1.0,1.0,1.0
 energy-meter-swap-november,0.0,0.0,0.5,1.0,1.0
 energy-meter-swap-november-s2,0.0,0.0,1.0,1.0,1.0
+energy-stacked-clean,,,0.0,1.0,1.0
+energy-stacked-clean-swap,,,0.0,1.0,1.0
+energy-stacked-degraded-a,,,0.0,1.0,1.0
+energy-stacked-degraded-b,,,0.0,1.0,1.0
+energy-stacked-degraded-c,,,0.0,1.0,1.0
+energy-stacked-stream-clean,,,1.0,1.0,1.0
+energy-stacked-stream-degraded,,,0.0,1.0,1.0
+energy-stacked-swap-degraded,,,0.0,1.0,1.0
 energy-stream-clean-week,,,1.0,1.0,1.0
 energy-stream-degraded,,,0.0,0.5,1.0
 energy-stream-gap,,,1.0,1.0,1.0

@@ -56,6 +56,12 @@ ABLATION = {
 }
 SEVERITY = [("1%", E + "degraded-month"), ("30%", E + "degraded-30"), ("60%", E + "degraded-60")]
 TRAP_LADDER = [(1, E + "rollover-only"), (2, E + "rollover-ct"), (3, E + "november"), (4, E + "swap-november")]
+STACKED_FAULT = ["energy-stacked-degraded-a", "energy-stacked-degraded-b", "energy-stacked-degraded-c",
+                 "energy-stacked-swap-degraded", "energy-stacked-stream-degraded"]
+STACKED_CTRL = ["energy-stacked-clean", "energy-stacked-clean-swap", "energy-stacked-stream-clean"]
+# version 2: part A ends away from the fault, so the question structure does not point at it
+STACKED2_FAULT = [t.replace("energy-stacked-", "energy-stacked2-") for t in STACKED_FAULT]
+STACKED2_CTRL = [t.replace("energy-stacked-", "energy-stacked2-") for t in STACKED_CTRL]
 DECLINE_TASKS = set(CATEGORIES["Silent sensor faults (decline)"]) | {"exp-checkout-srm", "exp-checkout-srm-hidden",
                                                                       "exp-checkout-closure-reassign", "exp-checkout-closure-stack"}
 
@@ -222,6 +228,26 @@ def main():
             pr.append({"model": m, "private_pass": p.reward.mean(), "private_n": len(p), "public_pass": pu.reward.mean(), "public_n": len(pu)})
         pd.DataFrame(pr).round(3).to_csv(OUT / "private_vs_public.csv", index=False)
 
+    # ---- stacked tasks: compute what you can AND decline what you cannot (joint pass), by version --------------
+    sj_rows, stk_all = [], df[df.task.str.startswith("energy-stacked")].copy()
+    if len(stk_all):
+        stk_all["pa"] = stk_all.details.apply(lambda d: (d.get("parts") or {}).get("a", np.nan))
+        stk_all["pb"] = stk_all.details.apply(lambda d: (d.get("parts") or {}).get("b", np.nan))
+        for version, flt, ctl in (("v1 guided (A ends Nov 25 next to the fault)", STACKED_FAULT, STACKED_CTRL),
+                                  ("v2 unguided (A ends Nov 15 away from the fault)", STACKED2_FAULT, STACKED2_CTRL)):
+            for m in ORDER:
+                f = stk_all[(stk_all.model == m) & stk_all.task.isin(flt)]
+                c = stk_all[(stk_all.model == m) & stk_all.task.isin(ctl)]
+                if len(f) or len(c):
+                    sj_rows.append({"version": version, "model": m, "fault_tasks_n": len(f), "part_a_compute": f.pa.mean() if len(f) else np.nan,
+                                    "part_b_decline": f.pb.mean() if len(f) else np.nan, "joint_pass_fault_tasks": f.reward.mean() if len(f) else np.nan,
+                                    "control_tasks_n": len(c), "joint_pass_controls": c.reward.mean() if len(c) else np.nan})
+        sj = pd.DataFrame(sj_rows)
+        sj.round(3).to_csv(OUT / "stacked_joint.csv", index=False)
+        stk_all[stk_all.reward == 0].groupby(["model", "failure"]).size().unstack(fill_value=0).to_csv(OUT / "stacked_failure_modes.csv")
+    else:
+        sj = pd.DataFrame()
+
     # =================================== charts ==================================================================
     sns.set_theme(style="whitegrid", context="talk", rc={"axes.grid.axis": "y"})
     colors = dict(zip(ORDER, sns.color_palette("viridis", len(ORDER))))
@@ -366,6 +392,41 @@ def main():
     fig.tight_layout()
     fig.savefig(OUT / "fig6_trap_ladder.png", dpi=160)
     plt.close(fig)
+
+    # 8. Stacked: compute what you can AND decline what you cannot (one row per version)
+    if len(sj):
+        versions = list(sj.version.unique())
+        fig, axes = plt.subplots(len(versions), 2, figsize=(12.5, 4.8 * len(versions)), gridspec_kw={"width_ratios": [3, 1.6]}, squeeze=False)
+        for (ax1, ax2), ver in zip(axes, versions):
+            d = sj[sj.version == ver].set_index("model")
+            x = np.arange(len(d))
+            w = 0.26
+            for i, (col, lab, colr) in enumerate((("part_a_compute", "Part A: compute the safe total", "#4c78a8"),
+                                                   ("part_b_decline", "Part B: decline the unsafe total", "#f58518"),
+                                                   ("joint_pass_fault_tasks", "Both right (joint)", "#222222"))):
+                vals = d[col].fillna(0)
+                bars = ax1.bar(x + (i - 1) * w, vals, w, yerr=[se(v, n) if n else 0 for v, n in zip(vals, d["fault_tasks_n"])], capsize=3, label=lab, color=colr)
+                for b_ in bars:
+                    ax1.text(b_.get_x() + b_.get_width() / 2, b_.get_height() + 0.03, f"{b_.get_height() * 100:.0f}%", ha="center", fontsize=10)
+            ax1.set_xticks(x)
+            ax1.set_xticklabels(d.index)
+            ax1.set_ylim(0, 1.2)
+            ax1.set_ylabel("Pass rate")
+            ax1.set_title(f"Hidden fault, {ver}", fontsize=11)
+            if ver == versions[0]:
+                ax1.legend(fontsize=9, loc="upper left")
+            vals = d["joint_pass_controls"].fillna(0)
+            bars = ax2.bar(x, vals, 0.5, yerr=[se(v, n) if n else 0 for v, n in zip(vals, d["control_tasks_n"])], capsize=3, color="#54a24b")
+            for b_ in bars:
+                ax2.text(b_.get_x() + b_.get_width() / 2, b_.get_height() + 0.03, f"{b_.get_height() * 100:.0f}%", ha="center", fontsize=10)
+            ax2.set_xticks(x)
+            ax2.set_xticklabels(d.index, rotation=15)
+            ax2.set_ylim(0, 1.2)
+            ax2.set_title("Clean controls (both parts numeric)", fontsize=11)
+        fig.suptitle("Compute what you can, refuse what you cannot (error bars: +/-1 SE, n is small)", fontsize=14)
+        fig.tight_layout()
+        fig.savefig(OUT / "fig8_stacked_joint.png", dpi=160)
+        plt.close(fig)
 
     # 7. Calls per attempt, pass vs fail
     d = pub[pub.calls.notna() & pub.model.isin(ORDER)].copy()

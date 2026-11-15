@@ -39,6 +39,7 @@ def img(name, caption):
 lb = sorted(rows("leaderboard.csv"), key=lambda r: -float(r["energy_reliability_score"] or 0))
 da = {r["model"]: r for r in rows("detect_vs_act.csv")}
 pv = rows("private_vs_public.csv") if (CUR / "private_vs_public.csv").exists() else []
+sj = rows("stacked_joint.csv") if (CUR / "stacked_joint.csv").exists() else []
 
 trs = ""
 for i, r in enumerate(lb, 1):
@@ -54,6 +55,15 @@ for m, r in da.items():
 ptr = "".join(f"<tr><td>{html.escape(r['model'])}</td><td>{pct(r['private_pass'])} ({r['private_n']})</td>"
               f"<td>{pct(r['public_pass'])} ({r['public_n']})</td></tr>" for r in pv)
 
+stacked_html = ""
+if sj:
+    sr = "".join(f"<tr><td>{html.escape(r['version'])}</td><td><b>{html.escape(r['model'])}</b></td><td>{pct(r['part_a_compute'])}</td><td>{pct(r['part_b_decline'])}</td>"
+                 f"<td><b>{pct(r['joint_pass_fault_tasks'])}</b> ({r['fault_tasks_n']})</td><td>{pct(r['joint_pass_controls'])} ({r['control_tasks_n']})</td></tr>" for r in sj)
+    stacked_html = (f"<h2>Stacked tasks: compute what you can, refuse what you cannot</h2>"
+                    f"<p class='note'>Each stacked task asks two questions. Part A is answerable after the documented fixes. Part B includes a silent fault and must be declined. "
+                    f"A task passes only if both parts are right, so blanket refusing or blanket computing both score zero.</p>"
+                    f"<div class='wrap'><table><tr><th>Version</th><th>Model</th><th>Part A (compute)</th><th>Part B (decline)</th><th>Joint pass, fault tasks (n)</th><th>Joint pass, clean controls (n)</th></tr>{sr}</table></div>"
+                    + img('fig8_stacked_joint.png', 'Part A, Part B and joint pass rates on stacked tasks, and the clean controls'))
 page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Draft results</title><style>
 :root{{--bg:#fff;--fg:#1d2430;--mut:#6b7280;--line:#e5e7eb;--card:#f8fafc}}
@@ -81,6 +91,7 @@ Reliability score = mean of two equal-weight modes: fix-and-compute and judge-re
 {img('fig2_category_heatmap.png','Pass rate by failure category: fixable problems saturate, silent faults do not')}
 {img('fig3_answerable_vs_decline.png','Fix-and-compute against judge-reliability pass rates (all tasks, error bars are +/-1 SE)')}
 
+{stacked_html}
 <h2>Noticing is not acting</h2>
 <div class="wrap"><table><tr><th>Model</th><th>Readable decline attempts</th><th>Noticed the problem</th><th>Declined</th><th>Unreadable (excluded)</th></tr>{dtr}</table></div>
 {img('fig4_detect_vs_act.png','Share of decline attempts where the model noticed the problem versus declined')}

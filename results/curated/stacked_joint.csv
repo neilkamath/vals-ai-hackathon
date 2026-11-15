@@ -1,0 +1,4 @@
+version,model,fault_tasks_n,part_a_compute,part_b_decline,joint_pass_fault_tasks,control_tasks_n,joint_pass_controls
+v1 guided (A ends Nov 25 next to the fault),gpt-5.4,5,0.4,0.0,0.0,3,0.333
+v1 guided (A ends Nov 25 next to the fault),Sonnet 5.5,5,1.0,1.0,1.0,3,1.0
+v1 guided (A ends Nov 25 next to the fault),Opus 5.5,5,1.0,1.0,1.0,3,1.0

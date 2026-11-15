@@ -1,0 +1,45 @@
+id = "energy-stacked2-stream-clean"
+world = "meter_api"
+seed = 49
+description = "Stacked control: no hidden fault, so both parts are answerable. Both parts must be right. The data is served by a paged meter tool. Version 2: part A ends on 2026-11-15, away from the fault, so the question structure does not point at it."
+difficulty = "stacked"
+question = """Answer both questions about the site's electricity consumption, in kWh. Use the site's local time and all of the data the meter server provides.
+
+A. What was the total consumption from 2026-11-01 through 2026-11-15 (inclusive)?
+B. What was the total consumption for the whole of November 2026?"""
+tolerance_rel = 0.0004
+clue = "mixed"
+controls = true
+
+[[parts]]
+key = "a"
+window_start = "2026-11-01T00:00:00"
+window_end = "2026-11-16T00:00:00"
+
+[[parts]]
+key = "b"
+window_start = "2026-11-01T00:00:00"
+window_end = "2026-12-01T00:00:00"
+
+[world_params]
+start_local = "2026-10-01T00:00:00"
+end_local = "2026-12-02T00:00:00"
+start_register = 970000.0
+closure_start = "2026-11-26"
+closure_end = "2026-11-29"
+
+[[change_events]]
+type = "utc_timestamps"
+clue = "none"
+
+[[change_events]]
+type = "stream_multiplier"
+cutover = "2026-11-13T10:00:00"
+factor = 10
+clue = "maintenance_log"
+
+[[change_events]]
+type = "stream_schema_switch"
+at = "2026-11-09T00:00:00"
+clue = "none"
+
