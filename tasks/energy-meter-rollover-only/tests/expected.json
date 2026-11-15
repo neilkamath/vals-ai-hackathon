@@ -1,0 +1,1 @@
+{"answer": 19966.3, "tolerance_rel": 0.0004, "tolerance_abs": 0, "traps": [{"id": "register_rollover", "keywords": ["rollover", "roll over", "rolled over", "wrap", "odometer", "overflow", "register reset", "6-digit", "6 digit"]}], "overcorrect_answer": 21874.2}

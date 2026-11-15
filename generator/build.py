@@ -30,6 +30,8 @@ def build_one(spec_path, out_root):
         wp["window_tz"] = spec["window_tz"]
     if "expected_status" in spec:
         wp["expected_status"] = spec["expected_status"]
+    if "low_ratio" in spec:
+        wp["low_ratio"] = spec["low_ratio"]
     if "status_kind" in spec:
         wp["status_kind"] = spec["status_kind"]
     world = WORLDS[spec["world"]](spec["seed"], wp)

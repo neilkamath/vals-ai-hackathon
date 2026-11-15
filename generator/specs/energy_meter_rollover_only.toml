@@ -1,0 +1,26 @@
+id = "energy-meter-rollover-only"
+world = "meter"
+seed = 21
+description = "Ladder rung 1: only the register rollover, over an explicit UTC window."
+difficulty = "ladder-1"
+question = """What was the total electricity consumption of the site between 2026-11-01 00:00 UTC and 2026-12-01 00:00 UTC, in kWh?
+
+Use all of the data in `/app`."""
+tolerance_rel = 0.0004
+clue = "mixed"
+window_start = "2026-11-01T00:00:00"
+window_end = "2026-12-01T00:00:00"
+window_tz = "utc"
+ablate = ["no_rollover_fix"]
+
+[world_params]
+start_local = "2026-10-01T00:00:00"
+end_local = "2026-12-02T00:00:00"
+start_register = 970000.0
+closure_start = "2026-11-26"
+closure_end = "2026-11-29"
+
+[[change_events]]
+type = "register_rollover"
+modulus = 1000000.0
+clue = "datasheet"
