@@ -39,10 +39,16 @@ def build_one(spec_path, out_root):
     clean = spec.get("expected_traps") == []  # trap-free question (paired clean task)
     status = spec.get("expected_status")
     if status:
-        n = {"control": 0, "treatment": 0}
-        for a in tables["assignments"]:
-            n[a["arm"]] += 1
-        chi2 = (n["treatment"] - n["control"]) ** 2 / (n["treatment"] + n["control"])
+        def chi(rows):
+            n = {"control": 0, "treatment": 0}
+            for a in rows:
+                n[a["arm"]] += 1
+            return n, (n["treatment"] - n["control"]) ** 2 / (n["treatment"] + n["control"])
+        n, chi2 = chi(tables["assignments"])
+        if spec.get("raw_balanced"):  # skew is hidden until the bots are removed
+            assert chi2 < 6, f"{spec['id']}: raw split is not balanced (chi2={chi2:.1f})"
+            bots = set().union(*[getattr(e, "bot_ids", set()) for e in events])
+            n, chi2 = chi([a for a in tables["assignments"] if a["user_id"] not in bots])
         assert chi2 > 30, f"{spec['id']}: split is not skewed enough (chi2={chi2:.1f})"
         assert abs(naive - truth) > tol, f"{spec['id']}: biased lift {naive} is close to the clean lift {truth}"
         expected = {"expected_status": status, "traps": [{"id": e.trap_id, "keywords": e.keywords} for e in events]}

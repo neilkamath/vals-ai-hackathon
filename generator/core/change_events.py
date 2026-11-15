@@ -232,12 +232,14 @@ class BotTraffic:
                 "excessive events", "extreme event"]
 
     def apply(self, tables, rng):
+        self.bot_ids = set()
         used = {e["event_id"] for e in tables["events"]} | {e["request_id"] for e in tables["events"]}
         start = date.fromisoformat(min(a["assigned_at"] for a in tables["assignments"]))
         end = date.fromisoformat(max(e["ts"][:10] for e in tables["events"]))
         n_users = len({a["user_id"] for a in tables["assignments"]})
         for i in range(self.n_bots):
             uid = f"u{n_users + i:05d}"
+            self.bot_ids.add(uid)
             d0 = start + timedelta(days=rng.randrange(0, 28))
             tables["assignments"].append({"user_id": uid, "assigned_at": d0.isoformat(),
                                           "arm": "treatment" if rng.random() < self.treat_frac else "control"})

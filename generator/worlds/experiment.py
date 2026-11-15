@@ -174,14 +174,15 @@ class ExperimentWorld(World):
     def solve_code(self, events):
         if self.params.get("expected_status"):
             return (
-                "#!/bin/bash\npython3 - <<'PY'\nimport csv, json\n"
-                "rows = list(csv.DictReader(open('/app/assignments.csv')))\n"
+                "#!/bin/bash\npython3 - <<'PY'\nimport collections, csv, json\n"
+                "ev = collections.Counter(r['user_id'] for r in csv.DictReader(open('/app/events.csv')))\n"
+                "rows = [r for r in csv.DictReader(open('/app/assignments.csv')) if ev[r['user_id']] < 100]\n"
                 "n = {'control': 0, 'treatment': 0}\nfor r in rows:\n    n[r['arm']] += 1\n"
                 "chi2 = (n['treatment'] - n['control']) ** 2 / (n['treatment'] + n['control'])\n"
                 "assert chi2 > 10.83, 'no sample ratio mismatch'\n"
-                "json.dump({'status': 'cannot_determine', 'reason': f'sample ratio mismatch: {n} users vs a 50/50 design "
+                "json.dump({'status': 'cannot_determine', 'reason': f'sample ratio mismatch among real customers: {n} vs a 50/50 design "
                 "(chi2={chi2:.0f}); the split is not random, so the lift is not reliable', "
-                "'flags': ['sample ratio mismatch: uneven split vs the documented 50/50 design']}, "
+                f"'flags': {[e.flag_text() for e in events]!r}}}, "
                 "open('/app/answer.json', 'w'))\nPY\n")
         w = self._window()
         undo = "\n".join(e.undo_code() for e in events)
