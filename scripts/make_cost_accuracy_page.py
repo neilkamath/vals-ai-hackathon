@@ -138,7 +138,7 @@ Use the site's local time for the month boundaries, and use all of the data in /
 <ul>
 <li><b>Fixable problems come with documents; silent faults do not.</b> Following the datasheet and the maintenance log fixes the rollover and the CT change. The dead day is documented nowhere, and the README's wording makes it look expected.</li>
 <li><b>The mechanics are not the bottleneck.</b> Reading data through the paged tool (overlapping pages, rate limits, a mid-stream format change) did not trouble the frontier models. A frozen register, which is easy to see, was caught by all of them.</li>
-<li><b>It holds on fresh data.</b> The degraded-day task on three public seeds gave similar results, and on four private held-out tasks the frontier models scored close to their public counterparts (Opus {pvp.get("Opus 5.5", {}).get("private_pass", "?")} vs {pvp.get("Opus 5.5", {}).get("public_pass", "?")}, Sonnet {pvp.get("Sonnet 5.5", {}).get("private_pass", "?")} vs {pvp.get("Sonnet 5.5", {}).get("public_pass", "?")}, gpt-5.4 {pvp.get("gpt-5.4", {}).get("private_pass", "?")} vs {pvp.get("gpt-5.4", {}).get("public_pass", "?")}, as fractions of attempts passed).</li>
+<li><b>It holds on fresh data.</b> The degraded-day task stayed hard on all three public seeds, and on four private held-out tasks no frontier model did worse than on the public versions (Opus {pvp.get("Opus 5.5", {}).get("private_pass", "?")} vs {pvp.get("Opus 5.5", {}).get("public_pass", "?")}, Sonnet {pvp.get("Sonnet 5.5", {}).get("private_pass", "?")} vs {pvp.get("Sonnet 5.5", {}).get("public_pass", "?")}, gpt-5.4 {pvp.get("gpt-5.4", {}).get("private_pass", "?")} vs {pvp.get("gpt-5.4", {}).get("public_pass", "?")}, as fractions of attempts passed).</li>
 </ul>
 
 <h2>Caveats</h2>
@@ -288,7 +288,7 @@ function render(){
   // best-performance and lowest-cost guides
   el("line",{x1:M.l,x2:W-M.r,y1:fy(amax),y2:fy(amax),stroke:"#7a7a72","stroke-dasharray":"3 4"},svg); lab("BEST PERFORMANCE",W-M.r-8,fy(amax)-7,"end");
   el("line",{x1:fx(cmin),x2:fx(cmin),y1:M.t,y2:H-M.b,stroke:"#7a7a72","stroke-dasharray":"3 4"},svg);
-  const lc=lab("LOWEST COST",fx(cmin)-8,M.t+104);lc.setAttribute("transform",`rotate(-90 ${fx(cmin)-8} ${M.t+104})`);
+  const lc=lab("LOWEST COST",fx(cmin)-8,H-M.b-10);lc.setAttribute("transform",`rotate(-90 ${fx(cmin)-8} ${H-M.b-10})`);
   if(state.frontier&&fr.length>1){el("polyline",{points:fr.map(d=>fx(d.cost)+","+fy(d.acc)).join(" "),fill:"none",stroke:"#2c6b4f","stroke-width":1.6},svg)}
   // points (error bars first)
   for(const d of DATA){const x=fx(d.cost);el("line",{x1:x,x2:x,y1:fy(d.acc-d.se),y2:fy(d.acc+d.se),stroke:COL[d.lab],opacity:.35,"stroke-width":2},svg)}
