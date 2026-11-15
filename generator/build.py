@@ -20,8 +20,63 @@ WORLDS = {"toy_orders": ToyOrdersWorld, "experiment": ExperimentWorld, "meter": 
 ROOT = Path(__file__).resolve().parent.parent
 
 
+MERGE = """python3 - <<'PY'
+import json
+a = json.load(open('/app/.part_a.json'))
+b = json.load(open('/app/.part_b.json'))
+def val(x):
+    return {'status': x['status'], 'reason': x['reason']} if 'status' in x else x['answer']
+json.dump({'a': val(a), 'b': val(b), 'flags': a.get('flags', []) + b.get('flags', [])}, open('/app/answer.json', 'w'))
+PY
+"""
+
+
+def build_stacked(spec, out_root):
+    """A task with several parts (a, b, ...). Each part is checked like a standalone task; the reward needs all parts right."""
+    wp = dict(spec["world_params"])
+    first = spec["parts"][0]
+    wp.update(window_start=first["window_start"], window_end=first["window_end"])
+    world = WORLDS[spec["world"]](spec["seed"], wp)
+    events = [change_events.build_event(e) for e in spec["change_events"]]
+    tables, files = Recorder(world, events, spec["seed"]).record()
+    files.update(clue_placer.place(events, world.filler_files()))
+    tol_rel = spec.get("tolerance_rel", 0.0004)
+    expected_parts, sols, notes = {}, {}, []
+    for part in spec["parts"]:
+        world.params.update(window_start=part["window_start"], window_end=part["window_end"])
+        for k in ("expected_status", "status_kind"):
+            world.params.pop(k, None)
+        truth = world.truth()
+        tol = tol_rel * abs(truth)
+        if part.get("expected_status"):
+            world.params.update(expected_status=part["expected_status"], status_kind=spec["status_kind"])
+            notes.append(f"{part['key']}: " + world.status_check(tables, events, truth, world.naive_answer(tables), tol))
+            expected_parts[part["key"]] = {"expected_status": part["expected_status"]}
+        else:
+            full = world.compute(tables, events)
+            assert abs(full - truth) <= tol, f"{spec['id']}.{part['key']}: reference {full} disagrees with truth {truth}"
+            for name, val in world.ablations(tables, events).items():
+                if part.get("ablate") is not None and name not in part["ablate"]:
+                    continue
+                assert abs(val - truth) > tol, f"{spec['id']}.{part['key']}: skipping '{name}' still passes ({val} vs {truth})"
+            if hasattr(world, "clean_check_answer") or not spec.get("controls"):
+                assert abs(world.naive_answer(tables) - truth) > tol or spec.get("controls"), f"{spec['id']}.{part['key']}: naive passes"
+            expected_parts[part["key"]] = {"answer": truth, "tolerance_rel": tol_rel}
+            notes.append(f"{part['key']}: truth={truth}")
+        sols[part["key"]] = world.solve_code(events)
+    scored = spec.get("scored_traps")
+    expected = {"parts": expected_parts,
+                "traps": [] if spec.get("controls") else [{"id": e.trap_id, "keywords": e.keywords} for e in events if not scored or e.trap_id in scored]}
+    sa = sols["a"].replace("/app/answer.json", "/app/.part_a.json").replace("#!/bin/bash\n", "", 1)
+    sb = sols["b"].replace("/app/answer.json", "/app/.part_b.json").replace("#!/bin/bash\n", "", 1)
+    task_writer.write(spec, files, expected, "#!/bin/bash\n" + sa + sb + MERGE, out_root)
+    print(f"built {spec['id']} (stacked): " + "; ".join(notes))
+
+
 def build_one(spec_path, out_root):
     spec = tomllib.loads(spec_path.read_text())
+    if spec.get("parts"):
+        return build_stacked(spec, out_root)
     wp = dict(spec["world_params"])
     if "window_end" in spec:
         wp["window_end"] = spec["window_end"]

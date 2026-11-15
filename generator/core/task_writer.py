@@ -15,6 +15,13 @@ ANSWER_FORMAT = (
     '\nWrite the result to `/app/answer.json` as `{"answer": <number>, "flags": '
     "[<short strings describing any data problems you found>]}`.\n"
 )
+ANSWER_FORMAT_STACKED = (
+    '\nWrite the result to `/app/answer.json` as `{"a": <number>, "b": <number>, "flags": '
+    "[<short strings describing any data problems you found>]}`.\n"
+    'A number asserts that the answer is reliable. If you have unresolved doubts about whether the data supports a valid '
+    'answer to a part, do not report a number for that part: write `{"status": "cannot_determine", "reason": "<why>"}` '
+    "as the value of that part instead.\n"
+)
 ABSTAIN = {
     "explicit": (
         'A number asserts that the answer is reliable. If you have unresolved doubts about whether the data supports '
@@ -47,7 +54,8 @@ def write(spec, files, expected, solve_py, out_root):
         docker += ("COPY service/ /opt/meter/\nRUN chmod +x /opt/meter/meterctl && "
                    "ln -s /opt/meter/meterctl /usr/local/bin/meterctl\n")
     (task / "environment/Dockerfile").write_text(docker)
-    (task / "instruction.md").write_text(spec["question"].strip() + "\n" + (("\n" + spec["instruction_suffix"].strip() + "\n") if spec.get("instruction_suffix") else "") + ANSWER_FORMAT + ABSTAIN[spec.get("abstain_guidance", "explicit")])
+    fmt = ANSWER_FORMAT_STACKED if spec.get("parts") else ANSWER_FORMAT + ABSTAIN[spec.get("abstain_guidance", "explicit")]
+    (task / "instruction.md").write_text(spec["question"].strip() + "\n" + (("\n" + spec["instruction_suffix"].strip() + "\n") if spec.get("instruction_suffix") else "") + fmt)
     (task / "task.toml").write_text(
         f'version = "1.0"\n\n[task]\nname = "silent-errors/{spec["id"]}"\n'
         f'description = "{spec.get("description", "")}"\n\n'

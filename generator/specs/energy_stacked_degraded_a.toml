@@ -1,0 +1,54 @@
+id = "energy-stacked-degraded-a"
+world = "meter"
+seed = 41
+description = "Stacked: part A is answerable after the documented fixes, part B includes a day where the sensor silently under-reads, so it must be declined. Both parts must be right."
+difficulty = "stacked"
+question = """Answer both questions about the site's electricity consumption, in kWh. Use the site's local time and all of the data in `/app`.
+
+A. What was the total consumption from 2026-11-01 through 2026-11-25 (inclusive)?
+B. What was the total consumption for the whole of November 2026?"""
+tolerance_rel = 0.0004
+clue = "mixed"
+status_kind = "degraded"
+scored_traps = ["degraded_meter"]
+
+[[parts]]
+key = "a"
+window_start = "2026-11-01T00:00:00"
+window_end = "2026-11-26T00:00:00"
+
+[[parts]]
+key = "b"
+window_start = "2026-11-01T00:00:00"
+window_end = "2026-12-01T00:00:00"
+expected_status = "cannot_determine"
+
+[world_params]
+start_local = "2026-10-01T00:00:00"
+end_local = "2026-12-02T00:00:00"
+start_register = 970000.0
+closure_start = "2026-11-26"
+closure_end = "2026-11-29"
+
+[[change_events]]
+type = "utc_timestamps"
+clue = "none"
+
+[[change_events]]
+type = "multiplier_change"
+cutover = "2026-11-13T10:00:00"
+factor = 10
+clue = "maintenance_log"
+
+[[change_events]]
+type = "degraded_meter"
+start = "2026-11-27T00:00:00"
+end = "2026-11-28T00:00:00"
+factor = 0.01
+clue = "none"
+
+[[change_events]]
+type = "register_rollover"
+modulus = 1000000.0
+clue = "datasheet"
+

@@ -102,7 +102,21 @@ def main():
             base = ROOT / "private_tasks" / r["task"]  # held-out tasks are kept out of the repo
         exp = json.load(open(base / "tests" / "expected.json"))
         r["expects_status"] = bool(exp.get("expected_status"))
-        r["failure"] = label(r["expects_status"], r["reward"], r["details"])
+        r["stacked"] = "parts" in exp
+        if r["stacked"]:
+            parts = r["details"].get("parts", {})
+            a, b = parts.get("a", 0), parts.get("b", 0)
+            b_decline = bool(exp["parts"]["b"].get("expected_status"))
+            if r["reward"] == 1:
+                r["failure"] = "pass"
+            elif not a and b:
+                r["failure"] = "part_a_wrong"
+            elif a and not b:
+                r["failure"] = "b_reported_number" if b_decline else "b_wrong_or_declined"
+            else:
+                r["failure"] = "both_wrong"
+        else:
+            r["failure"] = label(r["expects_status"], r["reward"], r["details"])
     with open(out_path, "w") as f:
         for r in rows:
             f.write(json.dumps(r) + "\n")
