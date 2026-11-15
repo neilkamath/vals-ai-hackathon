@@ -106,6 +106,7 @@ It applied every documented fix, saw the near-zero holiday, explained it away, a
 [![Accuracy vs cost per attempt for seven models on the 13 core tasks. Click for the interactive version.](results/curated/cost_vs_accuracy.png)](https://neilkamath.github.io/vals-ai-hackathon/)
 
 [Open the interactive chart](https://neilkamath.github.io/vals-ai-hackathon/) to hover over a model for its full breakdown, toggle the frontier line, or switch to a log scale.
+[Open the task explorer](https://neilkamath.github.io/vals-ai-hackathon/explorer/) to browse each of the 13 tasks, see how every model did on every attempt, and read the model's trace.
 
 | Model | Accuracy (±SE) | Fixable | Decline | Controls | Cost / attempt | Attempts |
 |---|---|---|---|---|---|---|
