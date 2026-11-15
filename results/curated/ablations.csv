@@ -1,0 +1,14 @@
+group,case,arm,task,pass_rate,se,n
+Hint (nudge to check data quality),degraded sensor,plain,energy-meter-degraded-month,0.333,0.192,6
+Hint (nudge to check data quality),degraded sensor,variant,energy-meter-degraded-month-hint,0.333,0.192,6
+Hint (nudge to check data quality),stacked fixes,plain,exp-checkout-stacked,1.0,0.0,3
+Hint (nudge to check data quality),stacked fixes,variant,exp-checkout-stacked-hint,1.0,0.0,3
+Hint (nudge to check data quality),bot traffic,plain,exp-checkout-bots,0.667,0.272,3
+Hint (nudge to check data quality),bot traffic,variant,exp-checkout-bots-hint,0.667,0.272,3
+Wording (explicit vs neutral decline rule),degraded sensor,plain,energy-meter-degraded-month,0.333,0.192,6
+Wording (explicit vs neutral decline rule),degraded sensor,variant,energy-meter-degraded-month-neutral,0.0,0.0,6
+Wording (explicit vs neutral decline rule),hidden skew,plain,exp-checkout-srm-hidden,0.5,0.204,6
+Wording (explicit vs neutral decline rule),hidden skew,variant,exp-checkout-srm-hidden-neutral,0.333,0.272,3
+Sensor severity (reads x% of true),1%,1%,energy-meter-degraded-month,0.333,0.192,6
+Sensor severity (reads x% of true),30%,30%,energy-meter-degraded-30,0.0,0.0,6
+Sensor severity (reads x% of true),60%,60%,energy-meter-degraded-60,0.0,0.0,6

@@ -1,0 +1,6 @@
+model,n,noticed,acted,detect_act_gap,unreadable_excluded
+Haiku 4.5,2,0.0,0.0,0.0,6
+gpt-5.2,6,0.0,0.0,0.0,2
+gpt-5.4,21,0.286,0.238,0.048,1
+Sonnet 5.5,22,1.0,0.409,0.591,0
+Opus 5.5,18,1.0,0.611,0.389,2

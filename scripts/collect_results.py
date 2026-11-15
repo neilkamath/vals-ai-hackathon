@@ -97,7 +97,10 @@ def main():
         print("collected", rid, m["label"])
     # failure labels (needs to know which tasks expect a status: read it from the task's expected.json)
     for r in rows:
-        exp = json.load(open(ROOT / "tasks" / r["task"] / "tests" / "expected.json"))
+        base = ROOT / "tasks" / r["task"]
+        if not base.exists():
+            base = ROOT / "private_tasks" / r["task"]  # held-out tasks are kept out of the repo
+        exp = json.load(open(base / "tests" / "expected.json"))
         r["expects_status"] = bool(exp.get("expected_status"))
         r["failure"] = label(r["expects_status"], r["reward"], r["details"])
     with open(out_path, "w") as f:

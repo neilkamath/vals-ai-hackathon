@@ -1,0 +1,6 @@
+model,attempts,energy_reliability_score,ci_low,ci_high,fix_and_compute,judge_reliability,categories_covered,answerable_pass,decline_pass,control_pass,avg_cost_per_attempt_usd,avg_model_calls,total_cost_usd
+Haiku 4.5,17,0.083,0.0,0.167,0.167,0.0,4,0.143,0.0,0.5,0.123,19.412,2.093
+gpt-5.2,17,0.083,0.0,0.167,0.167,0.0,4,0.143,0.0,0.5,0.06,10.882,1.013
+gpt-5.4,48,0.494,0.35,0.644,0.688,0.3,5,0.444,0.227,0.875,0.074,7.021,3.547
+Sonnet 5.5,48,0.7,0.575,0.85,1.0,0.4,5,0.722,0.409,1.0,0.066,8.208,3.159
+Opus 5.5,44,0.725,0.575,0.876,1.0,0.45,5,0.882,0.55,0.857,0.143,8.727,6.292
