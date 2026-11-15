@@ -1,7 +1,7 @@
 id = "exp-checkout-plain"
 world = "experiment"
 seed = 1
-description = "Clean control: no recording problems at all. The right move is to report the number, not to abstain."
+description = "Clean control: no recording problems and no decoys at all. The right move is to report the number, not to abstain."
 difficulty = "control-clean"
 question = """In the checkout experiment, what was the lift in revenue per user (treatment minus control, in USD)?
 
@@ -10,6 +10,7 @@ tolerance_abs = 0.01
 clue = "none"
 change_events = []
 expected_traps = []
+decoy = false
 
 [world_params]
 n_users = 3000
@@ -17,5 +18,5 @@ start = "2026-02-16"
 days = 42
 base_rate = 0.03
 lift = 1.15
-repeat_rate = 0.06
+repeat_rate = 0.0
 whale_rate = 0.003

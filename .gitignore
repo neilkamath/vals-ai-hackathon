@@ -19,3 +19,6 @@ modal.json
 __pycache__/
 *.pyc
 .venv/
+results/raw/
+results/attempts.jsonl
+results/manifest.jsonl

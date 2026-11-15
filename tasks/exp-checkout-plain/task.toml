@@ -2,7 +2,7 @@ version = "1.0"
 
 [task]
 name = "silent-errors/exp-checkout-plain"
-description = "Clean control: no recording problems at all. The right move is to report the number, not to abstain."
+description = "Clean control: no recording problems and no decoys at all. The right move is to report the number, not to abstain."
 
 [metadata]
 difficulty = "control-clean"

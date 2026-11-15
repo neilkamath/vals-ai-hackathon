@@ -98,7 +98,7 @@ def build_one(spec_path, out_root):
     expected = {"answer": truth, "tolerance_rel": tol_rel, "tolerance_abs": tol_abs,
                 "traps": [] if clean else [{"id": e.trap_id, "keywords": e.keywords} for e in events if not scored or e.trap_id in scored]}
     msg = f"truth={truth} naive={naive}"
-    if hasattr(world, "overcorrect_answer"):
+    if hasattr(world, "overcorrect_answer") and spec.get("decoy", True):
         oc = world.overcorrect_answer(tables)
         assert abs(oc - truth) > tol, f"{spec['id']}: decoy does not bite (overcorrect={oc} truth={truth})"
         expected["overcorrect_answer"] = oc
